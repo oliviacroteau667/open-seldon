@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+      - 'CODE_OF_CONDUCT.md'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'LICENSE'
+      - 'CODE_OF_CONDUCT.md'
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install API dependencies
+        run: pip install -r api/dependencies pytest pytest-asyncio
+
+      - name: Run unit tests
+        run: pytest api/tests/ -v --ignore=api/tests/test_integration.py
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create dummy secrets dir
+        run: |
+          mkdir -p secrets
+          echo "ci_postgres_password" > secrets/postgres_password
+
+      - name: Write CI env file
+        run: |
+          cp .env.example .env
+          echo "ANTHROPIC_API_KEY=ci_placeholder" >> .env
+          echo "POSTGRES_PASSWORD=ci_postgres_password" >> .env
+          echo "API_KEY=ci_api_key" >> .env
+
+      - name: Build and start stack
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build project7-postgres project7-api
+          sleep 15
+
+      - name: Check API health
+        run: curl -f http://localhost:8000/health
+
+      - name: Check API docs render
+        run: curl -f http://localhost:8000/docs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

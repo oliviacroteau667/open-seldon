@@ -1,0 +1,27 @@
+# Local overrides: exposes ports directly, uses env var for DB password instead of Docker secret
+services:
+  project7-postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev}
+      POSTGRES_PASSWORD_FILE: ""
+    secrets: []
+
+  project7-api:
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev}
+      POSTGRES_PASSWORD_FILE: ""
+    secrets: []
+
+  project7-web:
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+
+  project7-nginx:
+    ports:
+      - "8080:80"

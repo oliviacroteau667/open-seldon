@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# Environment and secrets
+.env
+env.yaml
+secrets/
+*.pem
+*.key
+
+# Data files
+*.csv
+*.xlsx
+*.xls
+*.parquet
+data/
+cleanedData/
+translatedData/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+web/.env.local
+web/.env*.local
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Model weights (large files)
+*.bin
+*.safetensors
+*.onnx
+models/

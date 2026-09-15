@@ -1,0 +1,84 @@
+services:
+  project7-postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-project7}
+      POSTGRES_USER: ${POSTGRES_USER:-project7_api}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  project7-api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      - project7-postgres
+    environment:
+      POSTGRES_HOST: project7-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-project7}
+      POSTGRES_USER: ${POSTGRES_USER:-project7_api}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_PHONE: ${TELEGRAM_PHONE}
+      API_KEY: ${API_KEY}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+    secrets:
+      - postgres_password
+    deploy:
+      resources:
+        limits:
+          memory: 3072m
+          cpus: "2"
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  project7-web:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      - project7-api
+    environment:
+      NEXT_PUBLIC_API_URL: http://project7-nginx/api
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  project7-nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - project7-api
+      - project7-web
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+volumes:
+  postgres_data:
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
