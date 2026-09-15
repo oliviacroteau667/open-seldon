@@ -9,6 +9,7 @@ Usage:
     python -m pipeline.scraper --channel polska_grupa_informacyjna
     python -m pipeline.scraper --channel polska_grupa_informacyjna --limit 500
     python -m pipeline.scraper --channel polska_grupa_informacyjna --full  # ignore incremental
+    python -m pipeline.scraper --channel polska_grupa_informacyjna --no-media  # skip file downloads
 """
 import argparse
 import asyncio
@@ -43,8 +44,9 @@ def media_type_for(msg) -> str:
     return "text"
 
 
-async def scrape(channel: str, limit: int, full: bool) -> None:
-    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+async def scrape(channel: str, limit: int, full: bool, no_media: bool = False) -> None:
+    if not no_media:
+        MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
     Path(SESSION_PATH).parent.mkdir(parents=True, exist_ok=True)
     client = TelegramClient(
@@ -77,7 +79,7 @@ async def scrape(channel: str, limit: int, full: bool) -> None:
             media_path = None
 
             # Download photos and videos
-            if mtype in ("image", "video") and msg.media:
+            if not no_media and mtype in ("image", "video") and msg.media:
                 ext = "jpg" if mtype == "image" else "mp4"
                 dest = MEDIA_DIR / channel / f"{msg.id}.{ext}"
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -116,7 +118,9 @@ if __name__ == "__main__":
                         help="max messages to fetch (first run or --full only)")
     parser.add_argument("--full", action="store_true",
                         help="ignore incremental mode, fetch from scratch")
+    parser.add_argument("--no-media", action="store_true",
+                        help="skip media downloads, store only text and media_type")
     args = parser.parse_args()
 
     logging.basicConfig(level="INFO")
-    asyncio.run(scrape(args.channel, args.limit, args.full))
+    asyncio.run(scrape(args.channel, args.limit, args.full, args.no_media))
