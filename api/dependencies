@@ -8,9 +8,4 @@ anthropic
 sentence-transformers
 telethon
 geopy
-pandas
-openpyxl
-gliner
-torch
 sentry-sdk[fastapi]
-aiohttp
