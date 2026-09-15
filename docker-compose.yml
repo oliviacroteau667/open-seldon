@@ -34,8 +34,11 @@ services:
       TELEGRAM_PHONE: ${TELEGRAM_PHONE}
       API_KEY: ${API_KEY}
       SENTRY_DSN: ${SENTRY_DSN:-}
+      MEDIA_DIR: /app/media
     secrets:
       - postgres_password
+    volumes:
+      - media_data:/app/media
     deploy:
       resources:
         limits:
@@ -76,6 +79,7 @@ services:
 
 volumes:
   postgres_data:
+  media_data:
 
 secrets:
   postgres_password:

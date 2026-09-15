@@ -1,29 +1,52 @@
 """
 Telegram channel scraper using Telethon.
-Writes raw messages to the messages table.
+Writes raw messages to the messages table, downloads media to MEDIA_DIR.
+
+Incremental by default: only fetches messages newer than the most recent
+already in the database for that channel. First run fetches the latest --limit messages.
 
 Usage:
     python -m pipeline.scraper --channel polska_grupa_informacyjna
-    python -m pipeline.scraper --channel polska_grupa_informacyjna --limit 500 --since 2026-01-01
+    python -m pipeline.scraper --channel polska_grupa_informacyjna --limit 500
+    python -m pipeline.scraper --channel polska_grupa_informacyjna --full  # ignore incremental
 """
 import argparse
 import asyncio
 import logging
 import os
-from datetime import datetime
+from pathlib import Path
 
 import asyncpg
 from telethon import TelegramClient
-from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
+from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument, MessageMediaWebPage
 
 from modules.dbcreds import resolve_postgres_dsn
 
 log = logging.getLogger(__name__)
 
+MEDIA_DIR = Path(os.environ.get("MEDIA_DIR", "/app/media"))
 
-async def scrape(channel: str, limit: int, since: datetime | None) -> None:
+
+def media_type_for(msg) -> str:
+    if isinstance(msg.media, MessageMediaPhoto):
+        return "image"
+    if isinstance(msg.media, MessageMediaDocument):
+        mime = getattr(msg.media.document, "mime_type", "") or ""
+        if mime.startswith("video"):
+            return "video"
+        if mime.startswith("audio"):
+            return "audio"
+        return "document"
+    if isinstance(msg.media, MessageMediaWebPage):
+        return "webpage"
+    return "text"
+
+
+async def scrape(channel: str, limit: int, full: bool) -> None:
+    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+
     client = TelegramClient(
-        "session",
+        "/app/session",
         int(os.environ["TELEGRAM_API_ID"]),
         os.environ["TELEGRAM_API_HASH"],
     )
@@ -32,21 +55,40 @@ async def scrape(channel: str, limit: int, since: datetime | None) -> None:
     await client.start(phone=os.environ["TELEGRAM_PHONE"])
     log.info("connected to Telegram, scraping %s", channel)
 
+    # Incremental: only fetch messages newer than what we already have
+    min_id = 0
+    if not full:
+        async with pool.acquire() as conn:
+            min_id = await conn.fetchval(
+                "SELECT COALESCE(MAX(id), 0) FROM messages WHERE channel_name = $1",
+                channel,
+            )
+        if min_id:
+            log.info("incremental mode: fetching messages newer than id %d", min_id)
+        else:
+            log.info("no existing messages, fetching latest %d", limit)
+
+    inserted = 0
     async with pool.acquire() as conn:
-        async for msg in client.iter_messages(channel, limit=limit, offset_date=since, reverse=True):
-            if msg.text is None and msg.media is None:
-                continue
+        async for msg in client.iter_messages(channel, limit=limit, min_id=min_id):
+            mtype = media_type_for(msg)
+            media_path = None
 
-            media_type = "text"
-            if isinstance(msg.media, MessageMediaPhoto):
-                media_type = "image"
-            elif isinstance(msg.media, MessageMediaDocument):
-                media_type = "document"
+            # Download photos and videos
+            if mtype in ("image", "video") and msg.media:
+                ext = "jpg" if mtype == "image" else "mp4"
+                dest = MEDIA_DIR / channel / f"{msg.id}.{ext}"
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    await client.download_media(msg, file=str(dest))
+                    media_path = str(dest)
+                except Exception:
+                    log.warning("failed to download media for message %d", msg.id)
 
-            await conn.execute(
+            result = await conn.execute(
                 """
-                INSERT INTO messages (id, channel_id, channel_name, date, raw_text, media_type)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO messages (id, channel_id, channel_name, date, raw_text, media_type, media_path)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT (id) DO NOTHING
                 """,
                 msg.id,
@@ -54,10 +96,13 @@ async def scrape(channel: str, limit: int, since: datetime | None) -> None:
                 channel,
                 msg.date,
                 msg.text,
-                media_type,
+                mtype,
+                media_path,
             )
+            if result == "INSERT 0 1":
+                inserted += 1
 
-    log.info("scrape complete")
+    log.info("scrape complete — %d new messages inserted", inserted)
     await client.disconnect()
     await pool.close()
 
@@ -65,9 +110,11 @@ async def scrape(channel: str, limit: int, since: datetime | None) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--channel", required=True)
-    parser.add_argument("--limit", type=int, default=1000)
-    parser.add_argument("--since", type=lambda s: datetime.fromisoformat(s), default=None)
+    parser.add_argument("--limit", type=int, default=100,
+                        help="max messages to fetch (first run or --full only)")
+    parser.add_argument("--full", action="store_true",
+                        help="ignore incremental mode, fetch from scratch")
     args = parser.parse_args()
 
     logging.basicConfig(level="INFO")
-    asyncio.run(scrape(args.channel, args.limit, args.since))
+    asyncio.run(scrape(args.channel, args.limit, args.full))
