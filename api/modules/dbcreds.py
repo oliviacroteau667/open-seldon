@@ -8,8 +8,10 @@ from pathlib import Path
 
 
 def _read_secret(path: str) -> str | None:
+    if not path:
+        return None
     p = Path(path)
-    if p.exists():
+    if p.is_file():
         return p.read_text().strip() or None
     return None
 
