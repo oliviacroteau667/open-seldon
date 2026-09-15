@@ -53,7 +53,7 @@ jobs:
 
       - name: Build and start stack
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build project7-postgres project7-api
+          docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build openseldon-postgres openseldon-api
           sleep 15
 
       - name: Check API health

@@ -41,7 +41,7 @@ def resolve_postgres_password() -> str:
 def resolve_postgres_dsn() -> str:
     host = os.environ.get("POSTGRES_HOST", "localhost")
     port = os.environ.get("POSTGRES_PORT", "5432")
-    db = os.environ.get("POSTGRES_DB", "project7")
-    user = os.environ.get("POSTGRES_USER", "project7_api")
+    db = os.environ.get("POSTGRES_DB", "openseldon")
+    user = os.environ.get("POSTGRES_USER", "openseldon_api")
     password = resolve_postgres_password()
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"

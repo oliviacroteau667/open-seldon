@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: `${process.env.API_INTERNAL_URL ?? "http://project7-api:8000"}/:path*`,
+        destination: `${process.env.API_INTERNAL_URL ?? "http://openseldon-api:8000"}/:path*`,
       },
     ];
   },

@@ -1,10 +1,10 @@
 services:
-  project7-postgres:
+  openseldon-postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-project7}
-      POSTGRES_USER: ${POSTGRES_USER:-project7_api}
+      POSTGRES_DB: ${POSTGRES_DB:-openseldon}
+      POSTGRES_USER: ${POSTGRES_USER:-openseldon_api}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     secrets:
       - postgres_password
@@ -17,16 +17,16 @@ services:
         max-size: "50m"
         max-file: "3"
 
-  project7-api:
+  openseldon-api:
     build: ./api
     restart: unless-stopped
     depends_on:
-      - project7-postgres
+      - openseldon-postgres
     environment:
-      POSTGRES_HOST: project7-postgres
+      POSTGRES_HOST: openseldon-postgres
       POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-project7}
-      POSTGRES_USER: ${POSTGRES_USER:-project7_api}
+      POSTGRES_DB: ${POSTGRES_DB:-openseldon}
+      POSTGRES_USER: ${POSTGRES_USER:-openseldon_api}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       TELEGRAM_API_ID: ${TELEGRAM_API_ID}
@@ -47,25 +47,25 @@ services:
         max-size: "100m"
         max-file: "5"
 
-  project7-web:
+  openseldon-web:
     build: ./web
     restart: unless-stopped
     depends_on:
-      - project7-api
+      - openseldon-api
     environment:
-      NEXT_PUBLIC_API_URL: http://project7-nginx/api
+      NEXT_PUBLIC_API_URL: http://openseldon-nginx/api
     logging:
       driver: json-file
       options:
         max-size: "50m"
         max-file: "3"
 
-  project7-nginx:
+  openseldon-nginx:
     image: nginx:alpine
     restart: unless-stopped
     depends_on:
-      - project7-api
-      - project7-web
+      - openseldon-api
+      - openseldon-web
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:

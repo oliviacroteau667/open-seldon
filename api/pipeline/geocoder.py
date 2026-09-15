@@ -17,7 +17,7 @@ from modules.dbcreds import resolve_postgres_dsn
 
 log = logging.getLogger(__name__)
 
-geolocator = Nominatim(user_agent="project7-humanitarian-analytics/0.1")
+geolocator = Nominatim(user_agent="open-seldon-humanitarian-analytics/0.1")
 
 
 def geocode_location(location: str) -> dict | None:

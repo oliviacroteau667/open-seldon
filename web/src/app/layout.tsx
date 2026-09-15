@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "project7",
+  title: "Open Seldon",
   description: "Humanitarian analytics dashboard for refugee community data",
 };
 

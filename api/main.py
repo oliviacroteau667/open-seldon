@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="project7 API",
+    title="Open Seldon API",
     version="0.1.0",
     lifespan=lifespan,
 )
