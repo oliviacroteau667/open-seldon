@@ -35,10 +35,12 @@ services:
       API_KEY: ${API_KEY}
       SENTRY_DSN: ${SENTRY_DSN:-}
       MEDIA_DIR: /app/media
+      TELEGRAM_SESSION: /app/session_data/session
     secrets:
       - postgres_password
     volumes:
       - media_data:/app/media
+      - session_data:/app/session_data
     deploy:
       resources:
         limits:
@@ -80,6 +82,7 @@ services:
 volumes:
   postgres_data:
   media_data:
+  session_data:
 
 secrets:
   postgres_password:

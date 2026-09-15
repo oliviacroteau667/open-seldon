@@ -25,6 +25,7 @@ from modules.dbcreds import resolve_postgres_dsn
 log = logging.getLogger(__name__)
 
 MEDIA_DIR = Path(os.environ.get("MEDIA_DIR", "/app/media"))
+SESSION_PATH = os.environ.get("TELEGRAM_SESSION", "/app/session")
 
 
 def media_type_for(msg) -> str:
@@ -45,8 +46,9 @@ def media_type_for(msg) -> str:
 async def scrape(channel: str, limit: int, full: bool) -> None:
     MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
+    Path(SESSION_PATH).parent.mkdir(parents=True, exist_ok=True)
     client = TelegramClient(
-        "/app/session",
+        SESSION_PATH,
         int(os.environ["TELEGRAM_API_ID"]),
         os.environ["TELEGRAM_API_HASH"],
     )
