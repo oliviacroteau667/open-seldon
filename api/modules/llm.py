@@ -9,7 +9,7 @@ import os
 from openai import AsyncOpenAI
 
 # High-volume pipeline tasks: translation, categorization, NER, vision
-PIPELINE_MODEL = "google/gemini-flash-1.5"
+PIPELINE_MODEL = "google/gemini-1.5-flash"
 
 # Low-volume user-facing tasks: chatbot, executive summary
 CHAT_MODEL = "anthropic/claude-3.5-sonnet"
