@@ -1,31 +1,32 @@
 """
-Translate raw messages to English using Claude.
+Translate raw messages to English using Gemini Flash via OpenRouter.
 Updates processed_messages with detected_language and translation.
 
-Replaces the old Ollama/gemma3 approach with Claude claude-haiku-4-5-20251001 for cost efficiency.
+Usage:
+    python -m pipeline.translator
+    python -m pipeline.translator --batch-size 100
 """
 import asyncio
 import json
 import logging
 
-import anthropic
 import asyncpg
 
 from modules.dbcreds import resolve_postgres_dsn
+from modules.llm import openrouter_client, PIPELINE_MODEL
 
 log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
-You are a precise translator for humanitarian data analysis. Given a message, return JSON with two fields:
-- "language": ISO 639-1 language code of the original (e.g. "uk", "pl", "ru", "en")
-- "translation": a faithful, literal English translation of the message
-
-If the message is already in English, return the original as-is in "translation".
+Detect the language of the input text and translate it to English.
+Respond with JSON: {"language": "<ISO 639-1 code>", "translation": "<English text>"}
+If the text is already English, return the original as translation.
+If the text is empty or non-linguistic, return {"language": "und", "translation": ""}
 Return only the JSON object, no other text."""
 
 
 async def translate_batch(batch_size: int = 50) -> None:
-    client = anthropic.AsyncAnthropic()
+    client = openrouter_client()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
 
     async with pool.acquire() as conn:
@@ -34,7 +35,7 @@ async def translate_batch(batch_size: int = 50) -> None:
             SELECT m.id, m.raw_text
             FROM messages m
             LEFT JOIN processed_messages p ON m.id = p.id
-            WHERE m.raw_text IS NOT NULL
+            WHERE m.raw_text IS NOT NULL AND m.raw_text != ''
               AND (p.id IS NULL OR p.translation IS NULL)
             LIMIT $1
             """,
@@ -45,13 +46,17 @@ async def translate_batch(batch_size: int = 50) -> None:
 
     for row in rows:
         try:
-            response = await client.messages.create(
-                model="claude-haiku-4-5-20251001",
+            response = await client.chat.completions.create(
+                model=PIPELINE_MODEL,
                 max_tokens=1024,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": row["raw_text"]}],
+                temperature=0,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": row["raw_text"]},
+                ],
             )
-            result = json.loads(response.content[0].text)
+            result = json.loads(response.choices[0].message.content)
         except Exception:
             log.exception("translation failed for message %d", row["id"])
             continue

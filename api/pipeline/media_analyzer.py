@@ -1,10 +1,10 @@
 """
-Analyze images and videos from scraped messages using Claude vision.
+Analyze images and videos from scraped messages using Gemini Flash vision via OpenRouter.
 
-- Images: encoded and sent directly to Claude claude-sonnet-4-6
+- Images: encoded and sent directly as base64 image_url
 - Videos: a single frame is extracted at the midpoint using ffmpeg,
-  then sent to Claude for analysis
-- Audio/documents: skipped (marked as unsupported in description)
+  then sent for analysis
+- Audio/documents: skipped
 
 Updates processed_messages.media_description.
 
@@ -18,10 +18,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import anthropic
 import asyncpg
 
 from modules.dbcreds import resolve_postgres_dsn
+from modules.llm import openrouter_client, PIPELINE_MODEL
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,6 @@ Be concise — 2-4 sentences maximum."""
 def extract_video_frame(video_path: str) -> bytes | None:
     """Extract a single frame from the video midpoint using ffmpeg."""
     try:
-        # Get video duration
         probe = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
              "-of", "default=noprint_wrappers=1:nokey=1", video_path],
@@ -59,7 +58,7 @@ def extract_video_frame(video_path: str) -> bytes | None:
         return None
 
 
-async def analyze_media(client: anthropic.AsyncAnthropic, media_path: str, media_type: str) -> str | None:
+async def analyze_media(media_path: str, media_type: str) -> str | None:
     image_bytes = None
 
     if media_type == "image":
@@ -68,37 +67,43 @@ async def analyze_media(client: anthropic.AsyncAnthropic, media_path: str, media
         except Exception:
             log.warning("could not read image at %s", media_path)
             return None
-
     elif media_type == "video":
         image_bytes = extract_video_frame(media_path)
         if not image_bytes:
             return "Video file — frame extraction failed."
-
     else:
         return None
 
     b64 = base64.standard_b64encode(image_bytes).decode()
+    client = openrouter_client()
     try:
-        response = await client.messages.create(
-            model="claude-sonnet-4-6",
+        response = await client.chat.completions.create(
+            model=PIPELINE_MODEL,
             max_tokens=512,
-            system=SYSTEM_PROMPT,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
-                    {"type": "text", "text": "Describe this image from a refugee community Telegram channel."}
-                ]
-            }]
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+                        },
+                        {
+                            "type": "text",
+                            "text": "Describe this image from a refugee community Telegram channel.",
+                        },
+                    ],
+                },
+            ],
         )
-        return response.content[0].text
+        return response.choices[0].message.content
     except Exception:
-        log.exception("Claude vision failed for %s", media_path)
+        log.exception("vision analysis failed for %s", media_path)
         return None
 
 
 async def analyze_batch(batch_size: int = 20) -> None:
-    client = anthropic.AsyncAnthropic()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
 
     async with pool.acquire() as conn:
@@ -118,7 +123,7 @@ async def analyze_batch(batch_size: int = 20) -> None:
     log.info("analyzing media for %d messages", len(rows))
 
     for row in rows:
-        description = await analyze_media(client, row["media_path"], row["media_type"])
+        description = await analyze_media(row["media_path"], row["media_type"])
         if description is None:
             continue
 

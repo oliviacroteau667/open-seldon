@@ -1,6 +1,6 @@
 """
-Classify messages into IOM humanitarian needs taxonomy using GLiNER2.
-Updates processed_messages.categories.
+Classify messages into IOM humanitarian needs taxonomy using Gemini Flash via OpenRouter.
+Replaces GLiNER2. Updates processed_messages.categories.
 
 Categories (IOM taxonomy):
     Legal Status / Documentation
@@ -11,13 +11,19 @@ Categories (IOM taxonomy):
     Health / Mental Health
     Safety / Security
     Border Crossing
+
+Usage:
+    python -m pipeline.categorizer
+    python -m pipeline.categorizer --batch-size 100
 """
 import asyncio
+import json
 import logging
 
 import asyncpg
 
 from modules.dbcreds import resolve_postgres_dsn
+from modules.llm import openrouter_client, PIPELINE_MODEL
 
 log = logging.getLogger(__name__)
 
@@ -32,18 +38,19 @@ IOM_CATEGORIES = [
     "Border Crossing",
 ]
 
-CONFIDENCE_THRESHOLD = 0.4
+SYSTEM_PROMPT = f"""\
+You categorize messages from Ukrainian refugee Telegram channels in Poland for IOM analysts.
+Assign zero or more of these categories that apply to the message:
+{chr(10).join(f"- {c}" for c in IOM_CATEGORIES)}
 
-
-def load_model():
-    # Lazy import — torch/gliner are heavy
-    from gliner import GLiNER
-    return GLiNER.from_pretrained("fastino/gliner2-base-v1")
+Respond with JSON: {{"categories": ["Category Name", ...]}}
+Return an empty list if none apply. Use exact category names from the list above.
+Return only the JSON object, no other text."""
 
 
 async def categorize_batch(batch_size: int = 100) -> None:
+    client = openrouter_client()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
-    model = load_model()
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -62,12 +69,18 @@ async def categorize_batch(batch_size: int = 100) -> None:
 
     for row in rows:
         try:
-            entities = model.predict_entities(
-                row["translation"],
-                IOM_CATEGORIES,
-                threshold=CONFIDENCE_THRESHOLD,
+            response = await client.chat.completions.create(
+                model=PIPELINE_MODEL,
+                max_tokens=128,
+                temperature=0,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": row["translation"]},
+                ],
             )
-            categories = list({e["label"] for e in entities})
+            data = json.loads(response.choices[0].message.content)
+            categories = [c for c in data.get("categories", []) if c in IOM_CATEGORIES]
         except Exception:
             log.exception("categorization failed for message %d", row["id"])
             continue

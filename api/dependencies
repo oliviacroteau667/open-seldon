@@ -4,8 +4,8 @@ asyncpg
 pgvector
 python-dotenv
 pyyaml
-anthropic
-sentence-transformers
+openai
+fastembed
 telethon
 geopy
 sentry-sdk[fastapi]

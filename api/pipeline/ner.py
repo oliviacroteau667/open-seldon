@@ -1,33 +1,35 @@
 """
-Extract location entities from translated messages using GLiNER2.
-Updates processed_messages.locations.
+Extract location entities from translated messages using Gemini Flash via OpenRouter.
+Replaces GLiNER2. Updates processed_messages.locations.
+
+Usage:
+    python -m pipeline.ner
+    python -m pipeline.ner --batch-size 100
 """
 import asyncio
+import json
 import logging
 
 import asyncpg
 
 from modules.dbcreds import resolve_postgres_dsn
+from modules.llm import openrouter_client, PIPELINE_MODEL
 
 log = logging.getLogger(__name__)
 
-LOCATION_TYPES = [
-    "city", "street", "district", "neighborhood",
-    "voivodeship", "postal code", "border crossing",
-    "country", "region", "county", "village", "address",
-]
+SYSTEM_PROMPT = """\
+Extract location mentions from messages posted by Ukrainian refugees in Poland.
+Include: cities, towns, districts, neighborhoods, border crossings, countries,
+regions, voivodeships, streets, addresses, institutions with locations.
 
-CONFIDENCE_THRESHOLD = 0.3
-
-
-def load_model():
-    from gliner import GLiNER
-    return GLiNER.from_pretrained("fastino/gliner2-large-v1")
+Respond with JSON: {"locations": ["location name", ...]}
+Return an empty list if no locations are mentioned.
+Return only the JSON object, no other text."""
 
 
 async def extract_locations(batch_size: int = 100) -> None:
+    client = openrouter_client()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
-    model = load_model()
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -45,12 +47,18 @@ async def extract_locations(batch_size: int = 100) -> None:
 
     for row in rows:
         try:
-            entities = model.predict_entities(
-                row["translation"],
-                LOCATION_TYPES,
-                threshold=CONFIDENCE_THRESHOLD,
+            response = await client.chat.completions.create(
+                model=PIPELINE_MODEL,
+                max_tokens=256,
+                temperature=0,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": row["translation"]},
+                ],
             )
-            locations = list({e["text"] for e in entities})
+            data = json.loads(response.choices[0].message.content)
+            locations = data.get("locations", [])
         except Exception:
             log.exception("NER failed for message %d", row["id"])
             continue

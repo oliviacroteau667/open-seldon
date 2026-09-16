@@ -1,24 +1,33 @@
 """
 Generate sentence embeddings for translated messages and store in pgvector.
-Uses all-MiniLM-L6-v2 (384-dim) — same model as the old system, now stored
-in a proper vector column instead of LONGTEXT JSON.
+Uses fastembed (ONNX) with all-MiniLM-L6-v2 — 384-dim, no torch dependency.
+
+Usage:
+    python -m pipeline.embedder
+    python -m pipeline.embedder --batch-size 200
 """
 import asyncio
 import logging
 
 import asyncpg
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 from modules.dbcreds import resolve_postgres_dsn
 
 log = logging.getLogger(__name__)
 
-MODEL_NAME = "all-MiniLM-L6-v2"
+_model: TextEmbedding | None = None
+
+
+def get_model() -> TextEmbedding:
+    global _model
+    if _model is None:
+        _model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+    return _model
 
 
 async def embed_batch(batch_size: int = 200) -> None:
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
-    model = SentenceTransformer(MODEL_NAME)
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -38,13 +47,14 @@ async def embed_batch(batch_size: int = 200) -> None:
         return
 
     log.info("embedding %d messages", len(rows))
+    model = get_model()
     texts = [row["translation"] for row in rows]
-    embeddings = model.encode(texts, show_progress_bar=True, normalize_embeddings=True)
+    embeddings = list(model.embed(texts))
 
     async with pool.acquire() as conn:
         await conn.executemany(
             "UPDATE processed_messages SET embedding = $2 WHERE id = $1",
-            [(row["id"], embedding.tolist()) for row, embedding in zip(rows, embeddings)],
+            [(row["id"], emb.tolist()) for row, emb in zip(rows, embeddings)],
         )
 
     log.info("embedding batch complete")
