@@ -1,51 +1,65 @@
 """
-Geocode extracted location strings to lat/lon using Nominatim.
-Updates processed_messages.geocoded_locations as [{name, lat, lon, country}].
+Geocode extracted location strings to lat/lon using Gemini Flash via OpenRouter.
+Replaces Nominatim to avoid public API rate limits and handle context better.
 
-Uses geopy RateLimiter (1.5s min delay, auto-retry on 429) per Nominatim ToS.
+Batches all locations for a message into a single LLM call.
+Updates processed_messages.geocoded_locations as [{name, lat, lon}].
+
+Usage:
+    python -m pipeline.geocoder
+    python -m pipeline.geocoder --batch-size 50
 """
 import asyncio
 import json
 import logging
 
 import asyncpg
-from geopy.geocoders import Nominatim
-from geopy.extra.rate_limiter import RateLimiter
 
 from modules.dbcreds import resolve_postgres_dsn
+from modules.llm import openrouter_client, PIPELINE_MODEL
 
 log = logging.getLogger(__name__)
 
-geolocator = Nominatim(user_agent="open-seldon-humanitarian-analytics/0.1")
-geocode = RateLimiter(
-    geolocator.geocode,
-    min_delay_seconds=1.5,
-    max_retries=3,
-    error_wait_seconds=30,
-    swallow_exceptions=False,
-)
+SYSTEM_PROMPT = """\
+You are a geocoder for locations mentioned in Ukrainian refugee Telegram channels in Poland.
+Given a list of location strings, return coordinates for each real, geocodeable place.
+Skip anything that is not a place (e.g. nationalities, adjectives, vague terms).
+
+Respond with JSON:
+{"results": [{"name": "Warsaw", "lat": 52.2297, "lon": 21.0122}, ...]}
+
+Only include entries where you are confident in the coordinates.
+Return an empty results list if none of the inputs are geocodeable places."""
 
 
-def geocode_location(location: str) -> dict | None:
-    """Try Poland then Ukraine; return first hit."""
-    if len(location) < 3:
-        return None
-    for country in ("pl", "ua"):
-        try:
-            result = geocode(location, country_codes=country, timeout=10)
-            if result:
-                return {
-                    "name": location,
-                    "lat": result.latitude,
-                    "lon": result.longitude,
-                    "country": country,
-                }
-        except Exception:
-            log.warning("geocoder failed for %r in %s", location, country)
-    return None
+async def geocode_locations(client, locations: list[str]) -> list[dict]:
+    if not locations:
+        return []
+    try:
+        response = await client.chat.completions.create(
+            model=PIPELINE_MODEL,
+            max_tokens=512,
+            temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": json.dumps(locations)},
+            ],
+        )
+        data = json.loads(response.choices[0].message.content)
+        results = data.get("results", [])
+        return [
+            r for r in results
+            if isinstance(r.get("lat"), (int, float))
+            and isinstance(r.get("lon"), (int, float))
+        ]
+    except Exception:
+        log.exception("geocoding failed for locations: %s", locations)
+        return []
 
 
 async def geocode_batch(batch_size: int = 50) -> None:
+    client = openrouter_client()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
 
     async with pool.acquire() as conn:
@@ -63,11 +77,7 @@ async def geocode_batch(batch_size: int = 50) -> None:
     log.info("geocoding locations for %d messages", len(rows))
 
     for row in rows:
-        geocoded = []
-        for loc in row["locations"]:
-            result = geocode_location(loc)
-            if result:
-                geocoded.append(result)
+        geocoded = await geocode_locations(client, row["locations"])
 
         async with pool.acquire() as conn:
             await conn.execute(
