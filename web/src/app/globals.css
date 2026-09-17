@@ -1,11 +1,16 @@
-* {
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #f0f4fb;
-  color: #111;
+html, body {
+  height: 100%;
+  background: #0A0912;
+  color: #EDEBFA;
+  font-family: "Instrument Sans", sans-serif;
+  overflow: hidden;
 }
+
+/* Suppress MapLibre logo if needed */
+.maplibregl-ctrl-attrib { display: none !important; }

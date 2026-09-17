@@ -13,7 +13,7 @@
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "mapbox-gl": "^3.0.0",
+    "maplibre-gl": "^4.0.0",
     "react-map-gl": "^8.0.0",
     "@deck.gl/core": "^9.0.0",
     "@deck.gl/layers": "^9.0.0",

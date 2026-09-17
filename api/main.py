@@ -8,6 +8,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from modules.applog import configure_logging
 from modules.dbcreds import resolve_postgres_dsn
+from routers import dashboard as dashboard_router
+from routers import chat as chat_router
 
 configure_logging()
 log = logging.getLogger(__name__)
@@ -43,6 +45,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(dashboard_router.router)
+app.include_router(chat_router.router)
 
 
 def get_pool() -> asyncpg.Pool:

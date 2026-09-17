@@ -11,8 +11,15 @@ def _read_secret(path: str) -> str | None:
     if not path:
         return None
     p = Path(path)
-    if p.is_file():
-        return p.read_text().strip() or None
+    if not p.is_file():
+        return None
+    raw = p.read_bytes()
+    # Handle UTF-16 LE/BE BOM (created on Windows) as well as plain UTF-8
+    for enc in ("utf-8-sig", "utf-16", "utf-8", "latin-1"):
+        try:
+            return raw.decode(enc).strip() or None
+        except (UnicodeDecodeError, LookupError):
+            continue
     return None
 
 
