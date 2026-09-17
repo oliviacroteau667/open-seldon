@@ -11,6 +11,7 @@ import logging
 
 import asyncpg
 from fastembed import TextEmbedding
+from pgvector.asyncpg import register_vector
 
 from modules.dbcreds import resolve_postgres_dsn
 
@@ -27,7 +28,10 @@ def get_model() -> TextEmbedding:
 
 
 async def embed_batch(batch_size: int = 200) -> None:
-    pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
+    pool = await asyncpg.create_pool(
+        resolve_postgres_dsn(), min_size=2, max_size=5,
+        init=register_vector,
+    )
 
     async with pool.acquire() as conn:
         rows = await conn.fetch(
