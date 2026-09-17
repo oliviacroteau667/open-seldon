@@ -47,7 +47,7 @@ jobs:
       - name: Write CI env file
         run: |
           cp .env.example .env
-          echo "ANTHROPIC_API_KEY=ci_placeholder" >> .env
+          echo "OPENROUTER_API_KEY=ci_placeholder" >> .env
           echo "POSTGRES_PASSWORD=ci_postgres_password" >> .env
           echo "API_KEY=ci_api_key" >> .env
 
