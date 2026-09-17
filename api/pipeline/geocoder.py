@@ -1,37 +1,47 @@
 """
 Geocode extracted location strings to lat/lon using Nominatim.
-Updates processed_messages.geocoded_locations as [{name, lat, lon}].
+Updates processed_messages.geocoded_locations as [{name, lat, lon, country}].
 
-Rate-limited to 1 request/second per Nominatim ToS.
+Uses geopy RateLimiter (1.5s min delay, auto-retry on 429) per Nominatim ToS.
 """
 import asyncio
 import json
 import logging
-import time
 
 import asyncpg
 from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut
+from geopy.extra.rate_limiter import RateLimiter
 
 from modules.dbcreds import resolve_postgres_dsn
 
 log = logging.getLogger(__name__)
 
 geolocator = Nominatim(user_agent="open-seldon-humanitarian-analytics/0.1")
+geocode = RateLimiter(
+    geolocator.geocode,
+    min_delay_seconds=1.5,
+    max_retries=3,
+    error_wait_seconds=30,
+    swallow_exceptions=False,
+)
 
 
 def geocode_location(location: str) -> dict | None:
-    """Try to geocode a location string, constrained to Poland and Ukraine."""
+    """Try Poland then Ukraine; return first hit."""
+    if len(location) < 3:
+        return None
     for country in ("pl", "ua"):
         try:
-            time.sleep(1.1)
-            result = geolocator.geocode(location, country_codes=country, timeout=10)
+            result = geocode(location, country_codes=country, timeout=10)
             if result:
-                return {"name": location, "lat": result.latitude, "lon": result.longitude, "country": country}
-        except GeocoderTimedOut:
-            log.warning("geocoder timeout for: %s", location)
+                return {
+                    "name": location,
+                    "lat": result.latitude,
+                    "lon": result.longitude,
+                    "country": country,
+                }
         except Exception:
-            log.exception("geocoder error for: %s", location)
+            log.warning("geocoder failed for %r in %s", location, country)
     return None
 
 
