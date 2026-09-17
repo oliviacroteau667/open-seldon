@@ -1,6 +1,6 @@
 # Open Seldon
 
-A visual analytics platform that transforms unstructured, multilingual Telegram data from refugee communities into actionable humanitarian intelligence. Designed for use by humanitarian professionals at organizations like IOM.
+A visual analytics platform that transforms unstructured, multilingual Telegram data from refugee communities into actionable humanitarian intelligence.
 
 ## What it does
 
