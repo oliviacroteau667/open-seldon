@@ -28,7 +28,7 @@ jobs:
           cache: pip
 
       - name: Install API dependencies
-        run: pip install -r api/dependencies pytest pytest-asyncio
+        run: pip install -r api/requirements.txt pytest pytest-asyncio
 
       - name: Run unit tests
         run: pytest api/tests/ -v --ignore=api/tests/test_integration.py
