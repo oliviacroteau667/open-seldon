@@ -1,7 +1,7 @@
 import type { DashboardData } from "@/types";
 
-export async function fetchDashboard(days = 365): Promise<DashboardData> {
-  const res = await fetch(`/api/dashboard?days=${days}`);
+export async function fetchDashboard(): Promise<DashboardData> {
+  const res = await fetch(`/api/dashboard`);
   if (!res.ok) throw new Error(`dashboard fetch failed: ${res.status}`);
   return res.json();
 }

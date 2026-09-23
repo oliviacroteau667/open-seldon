@@ -60,7 +60,6 @@ export function catKeysForMessage(msg: Message): string[] {
     .filter((k): k is string => !!k);
 }
 
-export const DAYS = 365;
 
 // City clustering: group messages by city name, accumulate coordinates
 export interface CityCluster {

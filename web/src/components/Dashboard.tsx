@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Message } from "@/types";
-import { CATEGORIES, DAYS, catKeysForMessage } from "@/types";
+import { CATEGORIES, catKeysForMessage } from "@/types";
 import { fetchDashboard } from "@/lib/api";
 import Sidebar from "./Sidebar";
 import DateSlider from "./DateSlider";
@@ -38,12 +38,12 @@ export default function Dashboard() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [channelsOn, setChannelsOn] = useState<Record<string, boolean>>({});
-  const [range, setRange] = useState<[number, number]>([7, DAYS - 1]);
+  const [range, setRange] = useState<[number, number] | null>(null);
   const [showRegions, setShowRegions] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDashboard(DAYS)
+    fetchDashboard()
       .then((data) => {
         setAllMessages(data.messages);
         setChannels(data.channels);
@@ -56,6 +56,13 @@ export default function Dashboard() {
       });
   }, []);
 
+  // Compute day span dynamically from actual message dates
+  const DAYS = useMemo(() => {
+    if (allMessages.length === 0) return 30;
+    const oldest = new Date(allMessages[allMessages.length - 1].timestamp).getTime();
+    return Math.ceil((Date.now() - oldest) / 86400000) + 1;
+  }, [allMessages]);
+
   const channelMessages = useMemo(
     () => allMessages.filter((m) => channelsOn[m.channel] !== false),
     [allMessages, channelsOn]
@@ -63,7 +70,9 @@ export default function Dashboard() {
 
   const dayCounts = useMemo(() => buildDayBuckets(channelMessages, DAYS), [channelMessages]);
 
-  const [startIdx, endIdx] = range;
+  // Default range: full span once DAYS is known
+  const effectiveRange = range ?? [0, DAYS - 1];
+  const [startIdx, endIdx] = effectiveRange;
 
   const inRange = useMemo(() => {
     const now = Date.now();
