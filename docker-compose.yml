@@ -52,25 +52,11 @@ services:
         max-size: "100m"
         max-file: "5"
 
-  openseldon-web:
-    build: ./web
-    restart: unless-stopped
-    depends_on:
-      - openseldon-api
-    environment:
-      NEXT_PUBLIC_API_URL: http://openseldon-nginx/api
-    logging:
-      driver: json-file
-      options:
-        max-size: "50m"
-        max-file: "3"
-
   openseldon-nginx:
     image: nginx:alpine
     restart: unless-stopped
     depends_on:
       - openseldon-api
-      - openseldon-web
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     logging:

@@ -8,5 +8,3 @@ services:
   openseldon-nginx:
     ports:
       - "80:80"
-    depends_on:
-      - openseldon-api

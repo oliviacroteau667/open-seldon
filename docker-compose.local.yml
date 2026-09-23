@@ -17,6 +17,10 @@ services:
     secrets: []
 
   openseldon-web:
+    build: ./web
+    restart: unless-stopped
+    depends_on:
+      - openseldon-api
     ports:
       - "3000:3000"
     environment:
