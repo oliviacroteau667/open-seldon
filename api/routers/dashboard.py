@@ -22,7 +22,7 @@ def _get_pool():
 
 @router.get("/dashboard")  # reachable via /api/dashboard through Next.js rewrite
 async def get_dashboard(
-    days: int = 30,
+    days: int = 365,
     pool: asyncpg.Pool = Depends(_get_pool),
 ):
     async with pool.acquire() as conn:
