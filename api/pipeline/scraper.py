@@ -121,11 +121,11 @@ async def scrape(channel: str, limit: int, full: bool, no_media: bool = False) -
     from pipeline.categorizer import categorize_batch
     from pipeline.embedder import embed_batch
 
-    await translate_batch()
-    await extract_locations()
-    await geocode_batch()
-    await categorize_batch()
-    await embed_batch()
+    await translate_batch(batch_size=1000)
+    await extract_locations(batch_size=1000)
+    await geocode_batch(batch_size=1000)
+    await categorize_batch(batch_size=1000)
+    await embed_batch(batch_size=1000)
     log.info("pipeline complete")
 
 
