@@ -1,0 +1,10 @@
+# Production overlay: exposes nginx on port 80.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d \
+#          openseldon-postgres openseldon-api openseldon-nginx
+#
+# The web container is intentionally omitted — the frontend runs on Vercel.
+
+services:
+  openseldon-nginx:
+    ports:
+      - "80:80"
