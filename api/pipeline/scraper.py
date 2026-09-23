@@ -110,6 +110,24 @@ async def scrape(channel: str, limit: int, full: bool, no_media: bool = False) -
     await client.disconnect()
     await pool.close()
 
+    if inserted == 0:
+        log.info("no new messages — skipping pipeline")
+        return
+
+    log.info("running processing pipeline on %d new messages", inserted)
+    from pipeline.translator import translate_batch
+    from pipeline.ner import extract_locations
+    from pipeline.geocoder import geocode_batch
+    from pipeline.categorizer import categorize_batch
+    from pipeline.embedder import embed_batch
+
+    await translate_batch()
+    await extract_locations()
+    await geocode_batch()
+    await categorize_batch()
+    await embed_batch()
+    log.info("pipeline complete")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
