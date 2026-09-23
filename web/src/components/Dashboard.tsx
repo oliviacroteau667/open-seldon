@@ -170,7 +170,7 @@ export default function Dashboard() {
           <div style={{ flex: 1, pointerEvents: "auto" }}>
             <DateSlider
               dayCounts={dayCounts}
-              range={range}
+              range={effectiveRange}
               onRangeChange={setRange}
               days={DAYS}
               totalInRange={inRange.length}
