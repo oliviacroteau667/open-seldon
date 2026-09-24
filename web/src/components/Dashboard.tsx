@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import type { Message } from "@/types";
 import { CATEGORIES, catKeysForMessage } from "@/types";
 import { fetchDashboard } from "@/lib/api";
+import { useWindowSize } from "@/hooks/useWindowSize";
 import Sidebar from "./Sidebar";
 import DateSlider from "./DateSlider";
 import CategoryBreakdown from "./CategoryBreakdown";
@@ -31,12 +32,21 @@ function dayLabel(idx: number, days: number): string {
 }
 
 export default function Dashboard() {
+  const { width } = useWindowSize();
+  const isMobile = width < 640;
+  const isSmall = width < 1100;
+
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [channels, setChannels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Auto-collapse sidebar on small viewports
+  useEffect(() => {
+    setSidebarCollapsed(isSmall);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSmall]);
   const [channelsOn, setChannelsOn] = useState<Record<string, boolean>>({});
   const [range, setRange] = useState<[number, number] | null>(null);
   const [showRegions, setShowRegions] = useState(true);
@@ -149,20 +159,55 @@ export default function Dashboard() {
     );
   }
 
+  if (isMobile) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100dvh", background: "#0A0912", overflow: "hidden", userSelect: "none" }}>
+        {/* Compact top bar */}
+        <div style={{ padding: "10px 12px", zIndex: 10 }}>
+          <DateSlider
+            dayCounts={dayCounts}
+            range={effectiveRange}
+            onRangeChange={setRange}
+            days={DAYS}
+            totalInRange={inRange.length}
+            activeChannels={channels.filter((c) => channelsOn[c]).length}
+            dayLabel={(i) => dayLabel(i, DAYS)}
+          />
+        </div>
+        {/* Map: top half */}
+        <div style={{ flex: "0 0 45vh", position: "relative" }}>
+          <MapStage messages={inRange} showRegions={showRegions} onToggleRegions={() => setShowRegions((v) => !v)} />
+        </div>
+        {/* Scrollable messages below */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column" }}>
+          <MessageFeed
+            messages={displayedMessages}
+            categoryFilter={categoryFilter}
+            onCategoryFilter={setCategoryFilter}
+            total={inRange.length}
+            inline
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ display: "flex", width: "100%", minWidth: 1280, height: "100vh", minHeight: 760, background: "#0A0912", overflow: "hidden", userSelect: "none" }}>
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed((c) => !c)}
-        channels={channels}
-        channelsOn={channelsOn}
-        onToggleChannel={(ch) => setChannelsOn((prev) => ({ ...prev, [ch]: !prev[ch] }))}
-        onToggleAll={() => {
-          const allOn = channels.every((c) => channelsOn[c]);
-          setChannelsOn(Object.fromEntries(channels.map((c) => [c, !allOn])));
-        }}
-        channelCounts={channelCounts}
-      />
+    <div style={{ display: "flex", width: "100%", height: "100vh", background: "#0A0912", overflow: "hidden", userSelect: "none" }}>
+      {!isMobile && (
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed((c) => !c)}
+          channels={channels}
+          channelsOn={channelsOn}
+          onToggleChannel={(ch) => setChannelsOn((prev) => ({ ...prev, [ch]: !prev[ch] }))}
+          onToggleAll={() => {
+            const allOn = channels.every((c) => channelsOn[c]);
+            setChannelsOn(Object.fromEntries(channels.map((c) => [c, !allOn])));
+          }}
+          channelCounts={channelCounts}
+        />
+      )}
 
       <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
         {/* Top bar: always above the map */}
@@ -183,7 +228,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Map fills the entire stage — interactive, no pointer-events blocking */}
+        {/* Map fills the entire stage */}
         <MapStage
           messages={inRange}
           showRegions={showRegions}
@@ -191,8 +236,8 @@ export default function Dashboard() {
         />
 
         {/* Bottom-left overlay: category breakdown + analyst chat */}
-        <div style={{ position: "absolute", left: 20, right: 420, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none" }}>
-          <div style={{ pointerEvents: "auto", flex: "1 1 500px", maxWidth: 500, minWidth: 320 }}>
+        <div style={{ position: "absolute", left: 20, right: isSmall ? 20 : 420, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none" }}>
+          <div style={{ pointerEvents: "auto", flex: "1 1 320px", maxWidth: 500, minWidth: 0 }}>
             <CategoryBreakdown
               categoryCounts={categoryCounts}
               prevCategoryCounts={prevCategoryCounts}
@@ -200,18 +245,22 @@ export default function Dashboard() {
               total={inRange.length}
             />
           </div>
-          <div style={{ pointerEvents: "auto", flex: "1 1 380px", maxWidth: 380, minWidth: 280 }}>
-            <AnalystChat contextIds={inRange.map((m) => m.id)} />
-          </div>
+          {!isSmall && (
+            <div style={{ pointerEvents: "auto", flex: "1 1 380px", maxWidth: 380, minWidth: 280 }}>
+              <AnalystChat contextIds={inRange.map((m) => m.id)} />
+            </div>
+          )}
         </div>
 
-        {/* Messages panel */}
-        <MessageFeed
-          messages={displayedMessages}
-          categoryFilter={categoryFilter}
-          onCategoryFilter={setCategoryFilter}
-          total={inRange.length}
-        />
+        {/* Messages panel — hidden on small viewports */}
+        {!isSmall && (
+          <MessageFeed
+            messages={displayedMessages}
+            categoryFilter={categoryFilter}
+            onCategoryFilter={setCategoryFilter}
+            total={inRange.length}
+          />
+        )}
       </div>
     </div>
   );

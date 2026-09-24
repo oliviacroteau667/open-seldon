@@ -8,6 +8,7 @@ interface Props {
   categoryFilter: string | null;
   onCategoryFilter: (key: string | null) => void;
   total: number;
+  inline?: boolean;
 }
 
 function formatTime(iso: string): string {
@@ -16,25 +17,37 @@ function formatTime(iso: string): string {
     " " + d.toTimeString().slice(0, 5);
 }
 
-export default function MessageFeed({ messages, categoryFilter, onCategoryFilter, total }: Props) {
+export default function MessageFeed({ messages, categoryFilter, onCategoryFilter, total, inline }: Props) {
   const catFilterCat = categoryFilter ? catForKey(categoryFilter) : null;
 
+  const containerStyle: React.CSSProperties = inline ? {
+    width: "100%",
+    background: "rgba(18,16,30,.9)",
+    border: "1px solid #2B2745",
+    borderRadius: 10,
+    backdropFilter: "blur(12px)",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    minHeight: 0,
+  } : {
+    position: "absolute",
+    right: 20,
+    top: 76,
+    bottom: 20,
+    width: 380,
+    background: "rgba(18,16,30,.9)",
+    border: "1px solid #2B2745",
+    borderRadius: 10,
+    backdropFilter: "blur(12px)",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    zIndex: 10,
+  };
+
   return (
-    <div style={{
-      position: "absolute",
-      right: 20,
-      top: 76,
-      bottom: 20,
-      width: 380,
-      background: "rgba(18,16,30,.9)",
-      border: "1px solid #2B2745",
-      borderRadius: 10,
-      backdropFilter: "blur(12px)",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      zIndex: 10,
-    }}>
+    <div style={containerStyle}>
       {/* Header */}
       <div style={{ padding: "14px 16px", borderBottom: "1px solid #2B2745", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
