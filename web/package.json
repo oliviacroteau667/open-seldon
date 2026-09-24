@@ -10,22 +10,23 @@
     "test": "playwright test"
   },
   "dependencies": {
+    "@deck.gl/core": "^9.0.0",
+    "@deck.gl/layers": "^9.0.0",
+    "@deck.gl/react": "^9.0.0",
+    "@deck.gl/widgets": "^9.4.0",
+    "maplibre-gl": "^4.0.0",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "maplibre-gl": "^4.0.0",
-    "react-map-gl": "^8.0.0",
-    "@deck.gl/core": "^9.0.0",
-    "@deck.gl/layers": "^9.0.0",
-    "@deck.gl/react": "^9.0.0"
+    "react-map-gl": "^8.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.47.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.0.0",
-    "@playwright/test": "^1.47.0",
     "eslint": "^9.0.0",
-    "eslint-config-next": "^15.0.0"
+    "eslint-config-next": "^15.0.0",
+    "typescript": "^5.0.0"
   }
 }
