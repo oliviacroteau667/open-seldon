@@ -26,6 +26,6 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
 
-  openseldon-nginx:
+  openseldon-caddy:
     ports:
       - "8080:80"
