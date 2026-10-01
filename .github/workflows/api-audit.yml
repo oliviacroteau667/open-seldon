@@ -15,6 +15,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install dependencies
+        run: pip install requests
+
       - name: Run audit script
         env:
           API_BASE_URL: ${{ secrets.PROD_API_URL }}
