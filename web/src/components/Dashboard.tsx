@@ -50,7 +50,6 @@ export default function Dashboard() {
   }, [isSmall]);
   const [channelsOn, setChannelsOn] = useState<Record<string, boolean>>({});
   const [range, setRange] = useState<[number, number] | null>(null);
-  const [showCountries, setShowCountries] = useState(true);
   const [showRegions, setShowRegions] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
@@ -180,7 +179,7 @@ export default function Dashboard() {
         </div>
         {/* Map: top half */}
         <div style={{ flex: "0 0 45vh", position: "relative" }}>
-          <MapStage messages={inRange} showCountries={showCountries} onToggleCountries={() => setShowCountries((v) => !v)} showRegions={showRegions} onToggleRegions={() => setShowRegions((v) => !v)} selectedCity={cityFilter} onCityClick={setCityFilter} />
+          <MapStage messages={inRange} showRegions={showRegions} onToggleRegions={() => setShowRegions((v) => !v)} selectedCity={cityFilter} onCityClick={setCityFilter} />
         </div>
         {/* Scrollable messages below */}
         <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column" }}>
@@ -237,8 +236,6 @@ export default function Dashboard() {
         {/* Map fills the entire stage */}
         <MapStage
           messages={inRange}
-          showCountries={showCountries}
-          onToggleCountries={() => setShowCountries((v) => !v)}
           showRegions={showRegions}
           onToggleRegions={() => setShowRegions((v) => !v)}
           selectedCity={cityFilter}

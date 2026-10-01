@@ -27,8 +27,6 @@ const REGION_NAME_PROP =
 
 interface Props {
   messages: Message[];
-  showCountries: boolean;
-  onToggleCountries: () => void;
   showRegions: boolean;
   onToggleRegions: () => void;
   selectedCity?: string | null;
@@ -122,7 +120,7 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showCountries, onToggleCountries, showRegions, onToggleRegions, selectedCity, onCityClick }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick }: Props) {
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
   const [worldGeojson, setWorldGeojson] = useState<FeatureCollection | null>(null);
 
@@ -165,8 +163,8 @@ export default function MapStage({ messages, showCountries, onToggleCountries, s
   const layers = useMemo(() => {
     const out = [];
 
-    // World country choropleth — amber fill, beneath everything
-    if (showCountries && worldGeojson) {
+    // World country choropleth — beneath everything, toggled with regions
+    if (showRegions && worldGeojson) {
       out.push(
         new GeoJsonLayer({
           id: "countries",
@@ -222,8 +220,8 @@ export default function MapStage({ messages, showCountries, onToggleCountries, s
           return selectedCity === d.city ? base + 4 : base;
         },
         radiusUnits: "pixels",
-        getFillColor: (d) => selectedCity === d.city ? [255, 200, 50, 240] : [100, 184, 55, 230],
-        getLineColor: (d) => selectedCity === d.city ? [255, 200, 50, 160] : [100, 184, 55, 72],
+        getFillColor: (d) => selectedCity === d.city ? [255, 200, 50, 240] : [100, 184, 55, 140],
+        getLineColor: (d) => selectedCity === d.city ? [255, 200, 50, 160] : [100, 184, 55, 50],
         lineWidthMinPixels: 0,
         stroked: true,
         getLineWidth: 4,
@@ -250,7 +248,7 @@ export default function MapStage({ messages, showCountries, onToggleCountries, s
     );
 
     return out;
-  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, showCountries, countryCounts, countryMax, zoom]);
+  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom]);
 
   const activeStyle = { color: "#EDEBFA", borderColor: "#8B7CF6" };
   const inactiveStyle = { color: "#9A93B8", borderColor: "#2B2745" };
@@ -285,12 +283,6 @@ export default function MapStage({ messages, showCountries, onToggleCountries, s
       <div style={{ position: "absolute", left: 20, top: 76, display: "flex", gap: 6, zIndex: 5, pointerEvents: "none" }}>
         <span style={{ pointerEvents: "auto", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "#EDEBFA", background: "rgba(18,16,30,.85)", border: "1px solid #8B7CF6", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(12px)" }}>
           POINTS
-        </span>
-        <span
-          onClick={onToggleCountries}
-          style={{ pointerEvents: "auto", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", background: "rgba(18,16,30,.85)", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(12px)", cursor: "pointer", ...(showCountries ? { color: "#F5A524", borderColor: "#F5A524", border: "1px solid #F5A524" } : inactiveStyle) }}
-        >
-          COUNTRIES
         </span>
         <span
           onClick={onToggleRegions}
