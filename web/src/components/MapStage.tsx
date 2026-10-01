@@ -160,6 +160,7 @@ export default function MapStage({ messages, showCountries, onToggleCountries, s
   );
 
   const initialViewState = useMemo(() => fitViewToMessages(messages), []);
+  const [zoom, setZoom] = useState<number>(initialViewState.zoom);
 
   const layers = useMemo(() => {
     const out = [];
@@ -230,11 +231,12 @@ export default function MapStage({ messages, showCountries, onToggleCountries, s
       })
     );
 
-    // City labels
+    // City labels — progressively show more as user zooms in
+    const minCountForLabel = zoom < 4 ? 999 : zoom < 5 ? 15 : zoom < 6 ? 5 : zoom < 7 ? 2 : 1;
     out.push(
       new TextLayer<CityCluster>({
         id: "city-labels",
-        data: cityClusters.filter((d) => d.count > 0),
+        data: cityClusters.filter((d) => d.count >= minCountForLabel),
         getPosition: (d) => [d.lon, d.lat, 0],
         getText: (d) => `${d.city.toUpperCase()}\n${d.count} msgs`,
         getSize: 11,
@@ -243,12 +245,12 @@ export default function MapStage({ messages, showCountries, onToggleCountries, s
         getTextAnchor: "start",
         getAlignmentBaseline: "center",
         getPixelOffset: [10, -10],
-        updateTriggers: { getText: cityClusters },
+        updateTriggers: { getText: cityClusters, data: [cityClusters, zoom] },
       })
     );
 
     return out;
-  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, showCountries, countryCounts, countryMax]);
+  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, showCountries, countryCounts, countryMax, zoom]);
 
   const activeStyle = { color: "#EDEBFA", borderColor: "#8B7CF6" };
   const inactiveStyle = { color: "#9A93B8", borderColor: "#2B2745" };
@@ -261,6 +263,7 @@ export default function MapStage({ messages, showCountries, onToggleCountries, s
         controller={true}
         layers={layers}
         style={{ position: "absolute", top: "0", left: "0", right: "0", bottom: "0" }}
+        onViewStateChange={({ viewState }) => setZoom((viewState as { zoom: number }).zoom)}
         getCursor={({ isDragging, isHovering }) => isDragging ? "grabbing" : isHovering ? "pointer" : "grab"}
         onClick={(info) => {
           if (info.layer?.id === "city-scatter") {
