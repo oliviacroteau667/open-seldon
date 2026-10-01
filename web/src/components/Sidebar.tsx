@@ -1,5 +1,6 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
+import { PanelToggle } from "./PanelToggle";
 
 interface Props {
   collapsed: boolean;
@@ -18,38 +19,81 @@ const PAGES = [
   { glyph: "ALR", label: "Alerts", active: false, dot: true },
 ];
 
+function activateOnEnterSpace(fn: () => void) {
+  return (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); }
+  };
+}
+
 export default function Sidebar({ collapsed, onToggle, channels, channelsOn, onToggleChannel, onToggleAll, channelCounts }: Props) {
   const allOn = channels.every((c) => channelsOn[c] !== false);
-  const w = collapsed ? 56 : 236;
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+
+  const displayW = dragWidth !== null ? dragWidth : (collapsed ? 56 : 236);
+  const isCollapsed = dragWidth !== null ? dragWidth < 100 : collapsed;
+
+  function startDrag(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = collapsed ? 56 : 236;
+    const onMove = (ev: MouseEvent) => {
+      setDragWidth(Math.max(40, Math.min(360, startW + ev.clientX - startX)));
+    };
+    const onUp = (ev: MouseEvent) => {
+      const finalW = Math.max(40, Math.min(360, startW + ev.clientX - startX));
+      setDragWidth(null);
+      const willCollapse = finalW < 150;
+      if (willCollapse !== collapsed) onToggle();
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
 
   return (
-    <div style={{
-      width: w,
-      flex: "none",
-      background: "#0C0B16",
-      borderRight: "1px solid #221F33",
-      display: "flex",
-      flexDirection: "column",
-      padding: "14px 10px",
-      gap: 2,
-      transition: "width .2s",
-      overflow: "hidden",
-      zIndex: 20,
-    }}>
+    <nav
+      aria-label="Main navigation"
+      style={{
+        width: displayW,
+        flex: "none",
+        background: "rgba(18,16,30,.68)",
+        backdropFilter: "blur(20px)",
+        borderRight: "1px solid rgba(255,255,255,.07)",
+        display: "flex",
+        flexDirection: "column",
+        padding: "14px 10px",
+        gap: 2,
+        transition: dragWidth !== null ? "none" : "width .2s",
+        overflow: "hidden",
+        zIndex: 20,
+        position: "relative",
+        height: "100%",
+      }}
+    >
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "2px 6px 16px" }}>
-        {!collapsed && (
+        {!isCollapsed && (
           <span style={{ font: "700 14px 'Instrument Sans', sans-serif", letterSpacing: "-.01em", whiteSpace: "nowrap", color: "#EDEBFA" }}>
             Open Seldon
           </span>
         )}
-        <ToggleBtn collapsed={collapsed} onToggle={onToggle} />
+        <PanelToggle
+          pointRight={isCollapsed}
+          onClick={onToggle}
+          ariaLabel={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+        />
       </div>
 
       {/* Pages */}
       {PAGES.map((p) => (
         <div
           key={p.glyph}
+          role="button"
+          tabIndex={0}
+          aria-label={p.label + (p.dot ? " (has notifications)" : "")}
+          aria-current={p.active ? "page" : undefined}
+          onKeyDown={activateOnEnterSpace(() => {})}
           style={{
             display: "flex",
             alignItems: "center",
@@ -64,129 +108,124 @@ export default function Sidebar({ collapsed, onToggle, channels, channelsOn, onT
           onMouseEnter={(e) => { if (!p.active) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
           onMouseLeave={(e) => { if (!p.active) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
         >
-          <span style={{ width: 20, flexShrink: 0, textAlign: "center", font: "700 10px 'Space Mono', monospace", letterSpacing: ".04em" }}>
+          <span aria-hidden="true" style={{ width: 20, flexShrink: 0, textAlign: "center", font: "700 10px 'Space Mono', monospace", letterSpacing: ".04em" }}>
             {p.glyph}
           </span>
-          {!collapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif", flex: 1 }}>{p.label}</span>}
-          {!collapsed && p.dot && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#E8553E", flexShrink: 0 }} />}
+          {!isCollapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif", flex: 1 }}>{p.label}</span>}
+          {!isCollapsed && p.dot && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#E8553E", flexShrink: 0 }} />}
         </div>
       ))}
 
       {/* Divider */}
-      <div style={{ height: 1, background: "#221F33", margin: "12px 6px" }} />
+      <div role="separator" style={{ height: 1, background: "rgba(255,255,255,.07)", margin: "12px 6px" }} />
 
       {/* Channels header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 8px 8px", whiteSpace: "nowrap" }}>
-        {!collapsed && <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8", letterSpacing: ".1em" }}>CHANNELS</span>}
-        {!collapsed && (
-          <span onClick={onToggleAll} style={{ font: "400 10px 'Space Mono', monospace", color: "#8B7CF6", cursor: "pointer" }}>
+        {!isCollapsed && <span id="channels-label" style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8", letterSpacing: ".1em" }}>CHANNELS</span>}
+        {!isCollapsed && (
+          <button
+            onClick={onToggleAll}
+            onKeyDown={activateOnEnterSpace(onToggleAll)}
+            aria-label={allOn ? "Deselect all channels" : "Select all channels"}
+            style={{ font: "400 10px 'Space Mono', monospace", color: "#8B7CF6", cursor: "pointer", background: "none", border: "none", padding: 0 }}
+          >
             {allOn ? "none" : "all"}
-          </span>
+          </button>
         )}
       </div>
 
       {/* Channel rows */}
-      {channels.map((ch) => {
-        const on = channelsOn[ch] !== false;
-        return (
-          <div
-            key={ch}
-            onClick={() => onToggleChannel(ch)}
-            title={ch}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "6px 8px",
-              borderRadius: 6,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-              opacity: on ? 1 : 0.55,
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
-          >
-            <span style={{
-              width: 16,
-              height: 16,
-              flexShrink: 0,
-              borderRadius: 4,
-              border: `1px solid ${on ? "#8B7CF6" : "#3A3555"}`,
-              background: on ? "#8B7CF6" : "transparent",
-              display: "grid",
-              placeItems: "center",
-              color: "#0A0912",
-              font: "700 11px/1 'Space Mono', monospace",
-              margin: "0 2px",
-            }}>
-              {on ? "✓" : ""}
-            </span>
-            {!collapsed && (
-              <>
-                <span style={{ font: "400 12px 'Instrument Sans', sans-serif", color: "#C9C4E4", flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {ch}
-                </span>
-                <span style={{ font: "400 11px 'Space Mono', monospace", color: "#9A93B8" }}>
-                  {channelCounts[ch] ?? 0}
-                </span>
-              </>
-            )}
-          </div>
-        );
-      })}
+      <div role="group" aria-labelledby="channels-label">
+        {channels.map((ch) => {
+          const on = channelsOn[ch] !== false;
+          return (
+            <div
+              key={ch}
+              role="checkbox"
+              aria-checked={on}
+              aria-label={ch}
+              tabIndex={0}
+              onClick={() => onToggleChannel(ch)}
+              onKeyDown={activateOnEnterSpace(() => onToggleChannel(ch))}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "6px 8px",
+                borderRadius: 6,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                opacity: on ? 1 : 0.55,
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+            >
+              <span aria-hidden="true" style={{
+                width: 16,
+                height: 16,
+                flexShrink: 0,
+                borderRadius: 4,
+                border: `1px solid ${on ? "#8B7CF6" : "#3A3555"}`,
+                background: on ? "#8B7CF6" : "transparent",
+                display: "grid",
+                placeItems: "center",
+                color: "#0A0912",
+                font: "700 11px/1 'Space Mono', monospace",
+                margin: "0 2px",
+              }}>
+                {on ? "✓" : ""}
+              </span>
+              {!isCollapsed && (
+                <>
+                  <span style={{ font: "400 12px 'Instrument Sans', sans-serif", color: "#C9C4E4", flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {ch}
+                  </span>
+                  <span aria-hidden="true" style={{ font: "400 11px 'Space Mono', monospace", color: "#9A93B8" }}>
+                    {channelCounts[ch] ?? 0}
+                  </span>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       <div style={{ flex: 1 }} />
 
       {/* Settings */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        padding: 8,
-        borderRadius: 6,
-        color: "#9A93B8",
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-        borderTop: "1px solid #221F33",
-        marginTop: 8,
-        paddingTop: 14,
-      }}
+      <div
+        role="button"
+        tabIndex={0}
+        aria-label="Settings"
+        onKeyDown={activateOnEnterSpace(() => {})}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: 8,
+          borderRadius: 6,
+          color: "#9A93B8",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          borderTop: "1px solid rgba(255,255,255,.07)",
+          marginTop: 8,
+          paddingTop: 14,
+        }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.color = "#EDEBFA"; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.color = "#9A93B8"; }}
       >
-        <span style={{ width: 20, flexShrink: 0, textAlign: "center", font: "400 13px 'Space Mono', monospace" }}>⚙</span>
-        {!collapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif" }}>Settings</span>}
+        <span aria-hidden="true" style={{ width: 20, flexShrink: 0, textAlign: "center", font: "400 13px 'Space Mono', monospace" }}>⚙</span>
+        {!isCollapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif" }}>Settings</span>}
       </div>
-    </div>
-  );
-}
 
-function ToggleBtn({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  return (
-    <span
-      onClick={onToggle}
-      style={{
-        width: 28,
-        height: 28,
-        flexShrink: 0,
-        display: "grid",
-        placeItems: "center",
-        border: "1px solid #2B2745",
-        borderRadius: 6,
-        color: "#9A93B8",
-        font: "400 12px 'Space Mono', monospace",
-        cursor: "pointer",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLSpanElement).style.color = "#EDEBFA";
-        (e.currentTarget as HTMLSpanElement).style.borderColor = "#8B7CF6";
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLSpanElement).style.color = "#9A93B8";
-        (e.currentTarget as HTMLSpanElement).style.borderColor = "#2B2745";
-      }}
-    >
-      {collapsed ? "›" : "‹"}
-    </span>
+      {/* Right-edge drag handle */}
+      <div
+        onMouseDown={startDrag}
+        aria-hidden="true"
+        style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 6, cursor: "ew-resize", zIndex: 5 }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+      />
+    </nav>
   );
 }

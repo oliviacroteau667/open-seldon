@@ -34,6 +34,7 @@ interface Props {
   selectedRegion?: string | null;
   onRegionClick?: (name: string | null) => void;
   onCityRegionMap?: (map: Record<string, string>) => void;
+  sidebarWidth?: number;
 }
 
 // Ray-casting point-in-polygon (handles Polygon and MultiPolygon)
@@ -142,7 +143,7 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0 }: Props) {
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
   const [worldGeojson, setWorldGeojson] = useState<FeatureCollection | null>(null);
 
@@ -279,7 +280,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
   const inactiveStyle = { color: "#9A93B8", border: "1px solid #2B2745" };
 
   return (
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} role="application" aria-label="Message map">
       {/* DeckGL manages its own canvas; Map provides the basemap underneath */}
       <DeckGL
         initialViewState={initialViewState}
@@ -314,21 +315,24 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
       </DeckGL>
 
       {/* Layer toggles — pointer-events only on these pills */}
-      <div style={{ position: "absolute", left: 20, top: 76, display: "flex", gap: 6, zIndex: 5, pointerEvents: "none" }}>
-        <span style={{ pointerEvents: "auto", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "#EDEBFA", background: "rgba(18,16,30,.85)", border: "1px solid #8B7CF6", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(12px)" }}>
+      <div style={{ position: "absolute", left: sidebarWidth + 20, top: 76, display: "flex", gap: 6, zIndex: 5, pointerEvents: "none", transition: "left .2s" }}>
+        <span aria-hidden="true" style={{ pointerEvents: "none", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "#EDEBFA", background: "rgba(18,16,30,.68)", border: "1px solid #8B7CF6", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(20px)" }}>
           POINTS
         </span>
-        <span
+        <button
           onClick={onToggleRegions}
-          style={{ pointerEvents: "auto", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", background: "rgba(18,16,30,.85)", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(12px)", cursor: "pointer", ...(showRegions ? activeStyle : inactiveStyle) }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleRegions(); } }}
+          aria-pressed={showRegions}
+          aria-label="Toggle regions layer"
+          style={{ pointerEvents: "auto", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", background: "rgba(18,16,30,.68)", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(20px)", cursor: "pointer", ...(showRegions ? activeStyle : inactiveStyle) }}
         >
           REGIONS
-        </span>
+        </button>
       </div>
 
       {/* Legend */}
       {showRegions && (
-        <div style={{ position: "absolute", left: 20, top: 114, zIndex: 5, background: "rgba(18,16,30,.85)", border: "1px solid #2B2745", borderRadius: 6, padding: "10px 12px", backdropFilter: "blur(12px)", font: "400 10px 'Space Mono', monospace", color: "#9A93B8", letterSpacing: ".04em", display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none" }}>
+        <div aria-label={`Legend: messages per region, max ${regionMax}`} style={{ position: "absolute", left: sidebarWidth + 20, top: 114, zIndex: 5, transition: "left .2s", background: "rgba(18,16,30,.68)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 6, padding: "10px 12px", backdropFilter: "blur(20px)", font: "400 10px 'Space Mono', monospace", color: "#9A93B8", letterSpacing: ".04em", display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none" }}>
           <span>MSGS / REGION</span>
           <div style={{ display: "flex", height: 8, width: 120, borderRadius: 2, overflow: "hidden" }}>
             {[0.08, 0.22, 0.38, 0.56, 0.75].map((a, i) => (

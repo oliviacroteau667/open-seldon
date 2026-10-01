@@ -9,6 +9,7 @@ interface Props {
   onCategoryFilter: (key: string | null) => void;
   total: number;
   inline?: boolean;
+  flush?: boolean;
   cityFilter?: string | null;
   onCityFilter?: (city: string | null) => void;
   regionFilter?: string | null;
@@ -21,10 +22,16 @@ function formatTime(iso: string): string {
     " " + d.toTimeString().slice(0, 5);
 }
 
-export default function MessageFeed({ messages, categoryFilter, onCategoryFilter, total, inline, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
+export default function MessageFeed({ messages, categoryFilter, onCategoryFilter, total, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
   const catFilterCat = categoryFilter ? catForKey(categoryFilter) : null;
 
-  const containerStyle: React.CSSProperties = inline ? {
+  const containerStyle: React.CSSProperties = flush ? {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    height: "100%",
+  } : inline ? {
     width: "100%",
     background: "rgba(18,16,30,.9)",
     border: "1px solid #2B2745",
@@ -53,7 +60,7 @@ export default function MessageFeed({ messages, categoryFilter, onCategoryFilter
   return (
     <div style={containerStyle}>
       {/* Header */}
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid #2B2745", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA" }}>
             Messages{cityFilter ? ` · ${cityFilter}` : regionFilter ? ` · ${regionFilter}` : ""}
@@ -92,7 +99,7 @@ export default function MessageFeed({ messages, categoryFilter, onCategoryFilter
       </div>
 
       {/* List */}
-      <div style={{ flex: 1, overflow: "auto", padding: "6px 0" }}>
+      <div className="feed-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
         {messages.length === 0 ? (
           <div style={{ padding: "24px 16px", font: "400 12px 'Instrument Sans', sans-serif", color: "#9A93B8", textAlign: "center" }}>
             No messages match the current channels and date range.
@@ -137,7 +144,7 @@ function MessageCard({ message: m }: { message: Message }) {
       borderLeft: `3px solid ${primaryCat?.color ?? "#3A3555"}`,
       margin: "4px 8px",
       background: "rgba(255,255,255,.03)",
-      borderRadius: "0 6px 6px 0",
+      borderRadius: 6,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>
         <span>@{m.channel}</span>

@@ -62,10 +62,10 @@ export default function DateSlider({ dayCounts, range, onRangeChange, days, tota
       alignItems: "center",
       gap: 14,
       padding: "0 16px",
-      background: "rgba(18,16,30,.85)",
-      border: "1px solid #2B2745",
+      background: "rgba(18,16,30,.68)",
+      border: "1px solid rgba(255,255,255,.07)",
       borderRadius: 8,
-      backdropFilter: "blur(12px)",
+      backdropFilter: "blur(20px)",
     }}>
       {/* Start label */}
       <span style={{ font: "400 11px 'Space Mono', monospace", color: "#9A93B8", whiteSpace: "nowrap", width: 52 }}>
@@ -160,9 +160,7 @@ export default function DateSlider({ dayCounts, range, onRangeChange, days, tota
 
       <span style={{ font: "700 11px 'Space Mono', monospace", color: "#8B7CF6", whiteSpace: "nowrap" }}>
         {totalInRange}{" "}
-        <span style={{ fontWeight: 400, color: "#9A93B8" }}>
-          MSGS · {activeChannels} CH
-        </span>
+        <span style={{ fontWeight: 400, color: "#9A93B8" }}>MSGS</span>
       </span>
     </div>
   );

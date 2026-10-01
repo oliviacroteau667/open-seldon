@@ -14,3 +14,17 @@ html, body {
 
 /* Suppress MapLibre logo if needed */
 .maplibregl-ctrl-attrib { display: none !important; }
+
+/* Accessible focus rings */
+:focus-visible {
+  outline: 2px solid #8B7CF6;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Feed scrollbar — dark purple track, light purple thumb */
+.feed-scroll { scrollbar-width: thin; scrollbar-color: #3D3465 #120E1F; }
+.feed-scroll::-webkit-scrollbar { width: 5px; }
+.feed-scroll::-webkit-scrollbar-track { background: #120E1F; }
+.feed-scroll::-webkit-scrollbar-thumb { background: #3D3465; border-radius: 3px; }
+.feed-scroll::-webkit-scrollbar-thumb:hover { background: #6B5EAC; }

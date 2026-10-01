@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Message } from "@/types";
 import { CATEGORIES, catKeysForMessage } from "@/types";
@@ -54,6 +54,26 @@ export default function Dashboard() {
   const [range, setRange] = useState<[number, number] | null>(null);
   const [showRegions, setShowRegions] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+
+  const [panelWidth, setPanelWidth] = useState(360);
+  const isResizing = useRef(false);
+
+  function startPanelDrag(e: React.MouseEvent) {
+    e.preventDefault();
+    isResizing.current = true;
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+    const onMove = (ev: MouseEvent) => {
+      setPanelWidth(Math.max(260, Math.min(640, startWidth + startX - ev.clientX)));
+    };
+    const onUp = () => {
+      isResizing.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
 
   useEffect(() => {
     fetchDashboard()
@@ -207,27 +227,15 @@ export default function Dashboard() {
     );
   }
 
-  return (
-    <div style={{ display: "flex", width: "100%", height: "100vh", background: "#0A0912", overflow: "hidden", userSelect: "none" }}>
-      {!isMobile && (
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed((c) => !c)}
-          channels={channels}
-          channelsOn={channelsOn}
-          onToggleChannel={(ch) => setChannelsOn((prev) => ({ ...prev, [ch]: !prev[ch] }))}
-          onToggleAll={() => {
-            const allOn = channels.every((c) => channelsOn[c]);
-            setChannelsOn(Object.fromEntries(channels.map((c) => [c, !allOn])));
-          }}
-          channelCounts={channelCounts}
-        />
-      )}
+  const sidebarW = sidebarCollapsed ? 56 : 236;
+  const leftPad = sidebarW + 20;
 
-      <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+  return (
+    <div style={{ width: "100%", height: "100vh", background: "#0A0912", overflow: "hidden", userSelect: "none", position: "relative" }}>
+      <div style={{ position: "absolute", inset: 0 }}>
         {/* Top bar: always above the map */}
-        <div style={{ position: "absolute", left: 20, right: 20, top: 16, display: "flex", alignItems: "center", gap: 12, zIndex: 10, pointerEvents: "none" }}>
-          <div style={{ flex: 1, pointerEvents: "auto" }}>
+        <div style={{ position: "absolute", left: leftPad, right: 20, top: 16, display: "flex", alignItems: "center", zIndex: 10, pointerEvents: "none", transition: "left .2s" }}>
+          <div style={{ flex: "0 1 480px", pointerEvents: "auto" }}>
             <DateSlider
               dayCounts={dayCounts}
               range={effectiveRange}
@@ -237,9 +245,6 @@ export default function Dashboard() {
               activeChannels={channels.filter((c) => channelsOn[c]).length}
               dayLabel={(i) => dayLabel(i, DAYS)}
             />
-          </div>
-          <div style={{ pointerEvents: "auto" }}>
-            <SummaryButton />
           </div>
         </div>
 
@@ -253,10 +258,11 @@ export default function Dashboard() {
           selectedRegion={regionFilter}
           onRegionClick={setRegionFilter}
           onCityRegionMap={setCityToRegion}
+          sidebarWidth={sidebarW}
         />
 
         {/* Bottom-left overlay: category breakdown + analyst chat */}
-        <div style={{ position: "absolute", left: 20, right: isSmall ? 20 : 420, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", left: leftPad, right: 20, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none", transition: "left .2s" }}>
           <div style={{ pointerEvents: "auto", flex: "1 1 320px", maxWidth: 500, minWidth: 0 }}>
             <CategoryBreakdown
               categoryCounts={categoryCounts}
@@ -272,84 +278,67 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Messages panel — hidden on small viewports unless a city is selected */}
-        {(!isSmall || cityFilter || regionFilter) && (
-          <MessageFeed
-            messages={displayedMessages}
-            categoryFilter={categoryFilter}
-            onCategoryFilter={setCategoryFilter}
-            total={inRange.length}
-            cityFilter={cityFilter}
-            onCityFilter={setCityFilter}
-            regionFilter={regionFilter}
-            onRegionFilter={setRegionFilter}
+        {/* Left sidebar: full-height overlay on top of the map */}
+        <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, zIndex: 20 }}>
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed((c) => !c)}
+            channels={channels}
+            channelsOn={channelsOn}
+            onToggleChannel={(ch) => setChannelsOn((prev) => ({ ...prev, [ch]: !prev[ch] }))}
+            onToggleAll={() => {
+              const allOn = channels.every((c) => channelsOn[c]);
+              setChannelsOn(Object.fromEntries(channels.map((c) => [c, !allOn])));
+            }}
+            channelCounts={channelCounts}
           />
-        )}
+        </div>
+
+        {/* Right panel: full-height overlay on top of the map */}
+        <div style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: panelWidth,
+          zIndex: 10,
+          borderLeft: "1px solid rgba(255,255,255,.07)",
+          background: "rgba(18,16,30,.68)",
+          backdropFilter: "blur(20px)",
+          display: "flex",
+          flexDirection: "row",
+          overflow: "hidden",
+        }}>
+          {/* Drag handle */}
+          <div
+            onMouseDown={startPanelDrag}
+            style={{
+              width: 6,
+              flexShrink: 0,
+              cursor: "ew-resize",
+              zIndex: 5,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+          />
+
+          {/* Panel content */}
+          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <MessageFeed
+              messages={displayedMessages}
+              categoryFilter={categoryFilter}
+              onCategoryFilter={setCategoryFilter}
+              total={inRange.length}
+              cityFilter={cityFilter}
+              onCityFilter={setCityFilter}
+              regionFilter={regionFilter}
+              onRegionFilter={setRegionFilter}
+              flush
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function SummaryButton() {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
-  const [streaming, setStreaming] = useState(false);
-
-  const weekNum = (() => {
-    const now = new Date();
-    const jan1 = new Date(now.getFullYear(), 0, 1);
-    return Math.ceil(((now.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
-  })();
-
-  async function handleClick() {
-    if (streaming) return;
-    setOpen(true);
-    setText("");
-    setStreaming(true);
-    try {
-      const { streamSummary } = await import("@/lib/api");
-      for await (const chunk of streamSummary()) {
-        setText((t) => t + chunk);
-      }
-    } finally {
-      setStreaming(false);
-    }
-  }
-
-  return (
-    <>
-      <div
-        onClick={handleClick}
-        style={{ height: 44, display: "flex", alignItems: "center", padding: "0 16px", background: "#8B7CF6", color: "#0A0912", borderRadius: 8, font: "600 13px 'Instrument Sans', sans-serif", cursor: "pointer", whiteSpace: "nowrap" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#9D90FF"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "#8B7CF6"; }}
-      >
-        Summary · Wk {weekNum} →
-      </div>
-      {open && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(10,9,18,.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            style={{ background: "rgba(18,16,30,.95)", border: "1px solid #2B2745", borderRadius: 12, padding: 28, maxWidth: 560, width: "90%", backdropFilter: "blur(20px)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ font: "600 13px 'Instrument Sans', sans-serif", marginBottom: 14, color: "#EDEBFA" }}>
-              Week {weekNum} Summary
-            </div>
-            <div style={{ font: "400 13px/1.6 'Instrument Sans', sans-serif", color: "#C9C4E4", whiteSpace: "pre-wrap" }}>
-              {text || (streaming ? "Generating…" : "No content yet")}
-            </div>
-            <div
-              onClick={() => setOpen(false)}
-              style={{ marginTop: 18, font: "400 11px 'Space Mono', monospace", color: "#9A93B8", cursor: "pointer" }}
-            >
-              Close ✕
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
