@@ -11,6 +11,9 @@ import "maplibre-gl/dist/maplibre-gl.css";
 // CARTO dark matter — free, no API key required
 const BASEMAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
+// World country boundaries — Natural Earth 110m (low-res, small file, no API key)
+const WORLD_GEOJSON_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
+
 // Region GeoJSON URL — override via NEXT_PUBLIC_REGION_GEOJSON_URL for other deployments.
 // Default: Poland voivodeships (open data, ppatrzyk/polska-geojson)
 const REGION_GEOJSON_URL =
@@ -74,6 +77,28 @@ function computeRegionCounts(
   return counts;
 }
 
+function computeCountryCounts(
+  messages: Message[],
+  geojson: FeatureCollection
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  const features = geojson.features as Feature<Polygon | MultiPolygon, GeoJsonProperties>[];
+  for (const m of messages) {
+    for (const loc of m.geocoded_locations ?? []) {
+      if (loc.type !== "country") continue;
+      for (const feature of features) {
+        if (!feature.geometry) continue;
+        if (pointInPolygon(loc.lon, loc.lat, feature as Feature<Polygon | MultiPolygon>)) {
+          const name = String(feature.properties?.["ADMIN"] ?? feature.properties?.["NAME"] ?? "");
+          if (name) counts[name] = (counts[name] ?? 0) + 1;
+          break;
+        }
+      }
+    }
+  }
+  return counts;
+}
+
 function fitViewToMessages(messages: Message[]) {
   const coords = messages.filter((m) => m.lat != null && m.lon != null);
   if (coords.length === 0) {
@@ -97,11 +122,16 @@ function alphaForCount(count: number, max: number): number {
 
 export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick }: Props) {
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
+  const [worldGeojson, setWorldGeojson] = useState<FeatureCollection | null>(null);
 
   useEffect(() => {
     fetch(REGION_GEOJSON_URL)
       .then((r) => r.json())
       .then(setGeojson)
+      .catch(console.warn);
+    fetch(WORLD_GEOJSON_URL)
+      .then((r) => r.json())
+      .then(setWorldGeojson)
       .catch(console.warn);
   }, []);
 
@@ -117,10 +147,43 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     [regionCounts]
   );
 
+  const countryCounts = useMemo(
+    () => (worldGeojson ? computeCountryCounts(messages, worldGeojson) : {}),
+    [messages, worldGeojson]
+  );
+
+  const countryMax = useMemo(
+    () => Math.max(1, ...Object.values(countryCounts)),
+    [countryCounts]
+  );
+
   const initialViewState = useMemo(() => fitViewToMessages(messages), []);
 
   const layers = useMemo(() => {
     const out = [];
+
+    // World country choropleth — amber fill, always on, beneath everything
+    if (worldGeojson) {
+      out.push(
+        new GeoJsonLayer({
+          id: "countries",
+          data: worldGeojson,
+          pickable: false,
+          stroked: true,
+          filled: true,
+          getFillColor: (f: Feature) => {
+            const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            const count = countryCounts[name] ?? 0;
+            const a = count > 0 ? 0.06 + Math.pow(count / countryMax, 0.6) * 0.50 : 0;
+            return [245, 165, 36, Math.round(a * 255)];
+          },
+          getLineColor: [80, 70, 100, 50],
+          lineWidthMinPixels: 0.5,
+          updateTriggers: { getFillColor: [countryCounts, countryMax] },
+          transitions: { getFillColor: 300 },
+        })
+      );
+    }
 
     if (showRegions && geojson) {
       out.push(

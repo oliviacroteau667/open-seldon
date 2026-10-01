@@ -1,3 +1,10 @@
+export interface GeocodedLocation {
+  name: string;
+  lat: number;
+  lon: number;
+  type?: "city" | "country" | "region";
+}
+
 export interface Message {
   id: number;
   timestamp: string; // ISO
@@ -9,6 +16,7 @@ export interface Message {
   text_translated: string | null;
   text_original: string | null;
   lang: string | null;
+  geocoded_locations: GeocodedLocation[];
 }
 
 export interface DashboardData {

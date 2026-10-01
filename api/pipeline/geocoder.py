@@ -25,8 +25,13 @@ You are a geocoder for locations mentioned in Ukrainian refugee Telegram channel
 Given a list of location strings, return coordinates for each real, geocodeable place.
 Skip anything that is not a place (e.g. nationalities, adjectives, vague terms).
 
+Classify each location as one of:
+- "city": a specific city, town, village, neighborhood, district, street, or institution
+- "country": a sovereign nation or territory (use its geographic centroid)
+- "region": a state, province, voivodeship, oblast, or other sub-national administrative area
+
 Respond with JSON:
-{"results": [{"name": "Warsaw", "lat": 52.2297, "lon": 21.0122}, ...]}
+{"results": [{"name": "Warsaw", "lat": 52.2297, "lon": 21.0122, "type": "city"}, ...]}
 
 Only include entries where you are confident in the coordinates.
 Return an empty results list if none of the inputs are geocodeable places."""
@@ -48,11 +53,14 @@ async def geocode_locations(client, locations: list[str]) -> list[dict]:
         )
         data = json.loads(response.choices[0].message.content)
         results = data.get("results", [])
-        return [
-            r for r in results
-            if isinstance(r.get("lat"), (int, float))
-            and isinstance(r.get("lon"), (int, float))
-        ]
+        valid = []
+        for r in results:
+            if not (isinstance(r.get("lat"), (int, float)) and isinstance(r.get("lon"), (int, float))):
+                continue
+            if r.get("type") not in ("city", "country", "region"):
+                r["type"] = "city"  # default for old prompts / unexpected values
+            valid.append(r)
+        return valid
     except Exception:
         log.exception("geocoding failed for locations: %s", locations)
         return []

@@ -58,11 +58,14 @@ async def get_dashboard(
             geo = []
 
         city = lat = lon = None
-        if geo:
-            first = geo[0]
-            city = first.get("name")
-            lat = first.get("lat")
-            lon = first.get("lon")
+        for loc in geo:
+            loc_type = loc.get("type")
+            # Accept city-type entries, or untyped entries (old data without type field)
+            if loc_type == "city" or loc_type is None:
+                city = loc.get("name")
+                lat = loc.get("lat")
+                lon = loc.get("lon")
+                break
 
         messages.append({
             "id": row["id"],
@@ -75,6 +78,7 @@ async def get_dashboard(
             "text_translated": row["translation"],
             "text_original": row["raw_text"],
             "lang": row["detected_language"],
+            "geocoded_locations": geo,
         })
 
     return {
