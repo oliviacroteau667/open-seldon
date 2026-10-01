@@ -1,0 +1,3 @@
+api.openseldon.org {
+    reverse_proxy openseldon-api:8000
+}
