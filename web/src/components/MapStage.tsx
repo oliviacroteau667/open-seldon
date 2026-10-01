@@ -26,6 +26,8 @@ interface Props {
   messages: Message[];
   showRegions: boolean;
   onToggleRegions: () => void;
+  selectedCity?: string | null;
+  onCityClick?: (city: string | null) => void;
 }
 
 // Ray-casting point-in-polygon (handles Polygon and MultiPolygon)
@@ -93,7 +95,7 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showRegions, onToggleRegions }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick }: Props) {
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
 
   useEffect(() => {
@@ -142,22 +144,24 @@ export default function MapStage({ messages, showRegions, onToggleRegions }: Pro
       );
     }
 
-    // City scatter — sized by message count
+    // City scatter — sized by message count, selected city highlighted
     out.push(
       new ScatterplotLayer<CityCluster>({
         id: "city-scatter",
         data: cityClusters,
         pickable: true,
         getPosition: (d) => [d.lon, d.lat, 0],
-        // Radius in pixels via radiusUnits, fallback to meters otherwise
-        getRadius: (d) => d.count > 0 ? 6 + Math.sqrt(d.count) * 2.6 : 4,
+        getRadius: (d) => {
+          const base = d.count > 0 ? 6 + Math.sqrt(d.count) * 2.6 : 4;
+          return selectedCity === d.city ? base + 4 : base;
+        },
         radiusUnits: "pixels",
-        getFillColor: [100, 184, 55, 230],
-        getLineColor: [100, 184, 55, 72],
+        getFillColor: (d) => selectedCity === d.city ? [255, 200, 50, 240] : [100, 184, 55, 230],
+        getLineColor: (d) => selectedCity === d.city ? [255, 200, 50, 160] : [100, 184, 55, 72],
         lineWidthMinPixels: 0,
         stroked: true,
         getLineWidth: 4,
-        updateTriggers: { getRadius: cityClusters },
+        updateTriggers: { getRadius: [cityClusters, selectedCity], getFillColor: selectedCity, getLineColor: selectedCity },
       })
     );
 
@@ -189,10 +193,18 @@ export default function MapStage({ messages, showRegions, onToggleRegions }: Pro
       {/* DeckGL manages its own canvas; Map provides the basemap underneath */}
       <DeckGL
         initialViewState={initialViewState}
-        controller={true}          // full pan / zoom / tilt / rotate
+        controller={true}
         layers={layers}
         style={{ position: "absolute", top: "0", left: "0", right: "0", bottom: "0" }}
-        getCursor={({ isDragging }) => isDragging ? "grabbing" : "grab"}
+        getCursor={({ isDragging, isHovering }) => isDragging ? "grabbing" : isHovering ? "pointer" : "grab"}
+        onClick={(info) => {
+          if (info.layer?.id === "city-scatter") {
+            const city = (info.object as CityCluster).city;
+            onCityClick?.(selectedCity === city ? null : city);
+          } else {
+            onCityClick?.(null);
+          }
+        }}
       >
         <Map
           mapStyle={BASEMAP_STYLE}
