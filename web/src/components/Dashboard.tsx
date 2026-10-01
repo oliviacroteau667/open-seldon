@@ -42,6 +42,8 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   const [cityFilter, setCityFilter] = useState<string | null>(null);
+  const [regionFilter, setRegionFilter] = useState<string | null>(null);
+  const [cityToRegion, setCityToRegion] = useState<Record<string, string>>({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // Auto-collapse sidebar on small viewports
   useEffect(() => {
@@ -128,8 +130,14 @@ export default function Dashboard() {
     let msgs = inRange;
     if (categoryFilter) msgs = msgs.filter((m) => catKeysForMessage(m).includes(categoryFilter));
     if (cityFilter) msgs = msgs.filter((m) => m.city === cityFilter);
+    if (regionFilter) msgs = msgs.filter((m) => {
+      if (m.city && cityToRegion[m.city] === regionFilter) return true;
+      return (m.geocoded_locations ?? []).some(
+        (loc) => loc.type === "country" && loc.name === regionFilter
+      );
+    });
     return msgs;
-  }, [inRange, categoryFilter, cityFilter]);
+  }, [inRange, categoryFilter, cityFilter, regionFilter, cityToRegion]);
 
   const channelCounts = useMemo(() => {
     const now = Date.now();
@@ -179,7 +187,7 @@ export default function Dashboard() {
         </div>
         {/* Map: top half */}
         <div style={{ flex: "0 0 45vh", position: "relative" }}>
-          <MapStage messages={inRange} showRegions={showRegions} onToggleRegions={() => setShowRegions((v) => !v)} selectedCity={cityFilter} onCityClick={setCityFilter} />
+          <MapStage messages={inRange} showRegions={showRegions} onToggleRegions={() => setShowRegions((v) => !v)} selectedCity={cityFilter} onCityClick={setCityFilter} selectedRegion={regionFilter} onRegionClick={setRegionFilter} onCityRegionMap={setCityToRegion} />
         </div>
         {/* Scrollable messages below */}
         <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column" }}>
@@ -190,6 +198,8 @@ export default function Dashboard() {
             total={inRange.length}
             cityFilter={cityFilter}
             onCityFilter={setCityFilter}
+            regionFilter={regionFilter}
+            onRegionFilter={setRegionFilter}
             inline
           />
         </div>
@@ -240,6 +250,9 @@ export default function Dashboard() {
           onToggleRegions={() => setShowRegions((v) => !v)}
           selectedCity={cityFilter}
           onCityClick={setCityFilter}
+          selectedRegion={regionFilter}
+          onRegionClick={setRegionFilter}
+          onCityRegionMap={setCityToRegion}
         />
 
         {/* Bottom-left overlay: category breakdown + analyst chat */}
@@ -260,7 +273,7 @@ export default function Dashboard() {
         </div>
 
         {/* Messages panel — hidden on small viewports unless a city is selected */}
-        {(!isSmall || cityFilter) && (
+        {(!isSmall || cityFilter || regionFilter) && (
           <MessageFeed
             messages={displayedMessages}
             categoryFilter={categoryFilter}
@@ -268,6 +281,8 @@ export default function Dashboard() {
             total={inRange.length}
             cityFilter={cityFilter}
             onCityFilter={setCityFilter}
+            regionFilter={regionFilter}
+            onRegionFilter={setRegionFilter}
           />
         )}
       </div>

@@ -31,6 +31,9 @@ interface Props {
   onToggleRegions: () => void;
   selectedCity?: string | null;
   onCityClick?: (city: string | null) => void;
+  selectedRegion?: string | null;
+  onRegionClick?: (name: string | null) => void;
+  onCityRegionMap?: (map: Record<string, string>) => void;
 }
 
 // Ray-casting point-in-polygon (handles Polygon and MultiPolygon)
@@ -77,6 +80,25 @@ function computeRegionCounts(
   return counts;
 }
 
+function computeCityToRegion(
+  clusters: CityCluster[],
+  geojson: FeatureCollection
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  const features = geojson.features as Feature<Polygon | MultiPolygon, GeoJsonProperties>[];
+  for (const cluster of clusters) {
+    for (const feature of features) {
+      if (!feature.geometry) continue;
+      if (pointInPolygon(cluster.lon, cluster.lat, feature as Feature<Polygon | MultiPolygon>)) {
+        const name = String(feature.properties?.[REGION_NAME_PROP] ?? "");
+        if (name) map[cluster.city] = name;
+        break;
+      }
+    }
+  }
+  return map;
+}
+
 function computeCountryCounts(
   messages: Message[],
   geojson: FeatureCollection
@@ -120,19 +142,13 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap }: Props) {
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
   const [worldGeojson, setWorldGeojson] = useState<FeatureCollection | null>(null);
 
   useEffect(() => {
-    fetch(REGION_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setGeojson)
-      .catch(console.warn);
-    fetch(WORLD_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setWorldGeojson)
-      .catch(console.warn);
+    fetch(REGION_GEOJSON_URL).then((r) => r.json()).then(setGeojson).catch(console.warn);
+    fetch(WORLD_GEOJSON_URL).then((r) => r.json()).then(setWorldGeojson).catch(console.warn);
   }, []);
 
   const cityClusters = useMemo(() => buildCityClusters(messages), [messages]);
@@ -146,6 +162,13 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     () => Math.max(1, ...Object.values(regionCounts)),
     [regionCounts]
   );
+
+  const cityToRegion = useMemo(
+    () => (geojson ? computeCityToRegion(cityClusters, geojson) : {}),
+    [cityClusters, geojson]
+  );
+
+  useEffect(() => { onCityRegionMap?.(cityToRegion); }, [cityToRegion, onCityRegionMap]);
 
   const countryCounts = useMemo(
     () => (worldGeojson ? computeCountryCounts(messages, worldGeojson) : {}),
@@ -169,18 +192,19 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         new GeoJsonLayer({
           id: "countries",
           data: worldGeojson,
-          pickable: false,
+          pickable: true,
           stroked: true,
           filled: true,
           getFillColor: (f: Feature) => {
             const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            if (name === selectedRegion) return [179, 168, 255, Math.round(0.45 * 255)];
             const count = countryCounts[name] ?? 0;
             const a = count > 0 ? 0.06 + Math.pow(count / countryMax, 0.6) * 0.50 : 0;
             return [139, 124, 246, Math.round(a * 255)];
           },
           getLineColor: [80, 70, 100, 50],
           lineWidthMinPixels: 0.5,
-          updateTriggers: { getFillColor: [countryCounts, countryMax] },
+          updateTriggers: { getFillColor: [countryCounts, countryMax, selectedRegion] },
           transitions: { getFillColor: 300 },
         })
       );
@@ -196,19 +220,20 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           filled: true,
           getFillColor: (f: Feature) => {
             const name = String(f.properties?.[REGION_NAME_PROP] ?? "");
+            if (name === selectedRegion) return [179, 168, 255, Math.round(0.55 * 255)];
             const count = regionCounts[name] ?? 0;
             const a = alphaForCount(count, regionMax);
             return [139, 124, 246, Math.round(a * 255)];
           },
           getLineColor: [179, 168, 255, 140],
           lineWidthMinPixels: 1,
-          updateTriggers: { getFillColor: [regionCounts, regionMax] },
+          updateTriggers: { getFillColor: [regionCounts, regionMax, selectedRegion] },
           transitions: { getFillColor: 300 },
         })
       );
     }
 
-    // City scatter — sized by message count, selected city highlighted
+    // City scatter — radius scales with message count
     out.push(
       new ScatterplotLayer<CityCluster>({
         id: "city-scatter",
@@ -248,7 +273,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     );
 
     return out;
-  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom]);
+  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom, selectedRegion, selectedCity]);
 
   const activeStyle = { color: "#EDEBFA", border: "1px solid #8B7CF6" };
   const inactiveStyle = { color: "#9A93B8", border: "1px solid #2B2745" };
@@ -267,8 +292,17 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           if (info.layer?.id === "city-scatter") {
             const city = (info.object as CityCluster).city;
             onCityClick?.(selectedCity === city ? null : city);
+            onRegionClick?.(null);
+          } else if (info.layer?.id === "regions") {
+            const name = String((info.object as Feature).properties?.[REGION_NAME_PROP] ?? "");
+            if (name) { onRegionClick?.(selectedRegion === name ? null : name); onCityClick?.(null); }
+          } else if (info.layer?.id === "countries") {
+            const f = info.object as Feature;
+            const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            if (name) { onRegionClick?.(selectedRegion === name ? null : name); onCityClick?.(null); }
           } else {
             onCityClick?.(null);
+            onRegionClick?.(null);
           }
         }}
       >

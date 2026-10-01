@@ -11,6 +11,8 @@ interface Props {
   inline?: boolean;
   cityFilter?: string | null;
   onCityFilter?: (city: string | null) => void;
+  regionFilter?: string | null;
+  onRegionFilter?: (name: string | null) => void;
 }
 
 function formatTime(iso: string): string {
@@ -19,7 +21,7 @@ function formatTime(iso: string): string {
     " " + d.toTimeString().slice(0, 5);
 }
 
-export default function MessageFeed({ messages, categoryFilter, onCategoryFilter, total, inline, cityFilter, onCityFilter }: Props) {
+export default function MessageFeed({ messages, categoryFilter, onCategoryFilter, total, inline, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
   const catFilterCat = categoryFilter ? catForKey(categoryFilter) : null;
 
   const containerStyle: React.CSSProperties = inline ? {
@@ -54,12 +56,12 @@ export default function MessageFeed({ messages, categoryFilter, onCategoryFilter
       <div style={{ padding: "14px 16px", borderBottom: "1px solid #2B2745", display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA" }}>
-            Messages{cityFilter ? ` · ${cityFilter}` : ""}
+            Messages{cityFilter ? ` · ${cityFilter}` : regionFilter ? ` · ${regionFilter}` : ""}
           </span>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {cityFilter && (
+            {(cityFilter || regionFilter) && (
               <span
-                onClick={() => onCityFilter?.(null)}
+                onClick={() => { onCityFilter?.(null); onRegionFilter?.(null); }}
                 style={{ font: "400 10px 'Space Mono', monospace", color: "#F5A524", cursor: "pointer" }}
               >
                 CLEAR ✕
