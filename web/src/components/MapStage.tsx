@@ -176,7 +176,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
             const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
             const count = countryCounts[name] ?? 0;
             const a = count > 0 ? 0.06 + Math.pow(count / countryMax, 0.6) * 0.50 : 0;
-            return [245, 165, 36, Math.round(a * 255)];
+            return [139, 124, 246, Math.round(a * 255)];
           },
           getLineColor: [80, 70, 100, 50],
           lineWidthMinPixels: 0.5,
@@ -250,8 +250,8 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     return out;
   }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom]);
 
-  const activeStyle = { color: "#EDEBFA", borderColor: "#8B7CF6" };
-  const inactiveStyle = { color: "#9A93B8", borderColor: "#2B2745" };
+  const activeStyle = { color: "#EDEBFA", border: "1px solid #8B7CF6" };
+  const inactiveStyle = { color: "#9A93B8", border: "1px solid #2B2745" };
 
   return (
     <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
