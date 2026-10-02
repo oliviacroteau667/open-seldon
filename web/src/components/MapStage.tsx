@@ -164,11 +164,6 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     [regionCounts]
   );
 
-  const countryMaxDisplay = useMemo(
-    () => Math.max(0, ...Object.values(countryCounts)),
-    [countryCounts]
-  );
-
   const cityToRegion = useMemo(
     () => (geojson ? computeCityToRegion(cityClusters, geojson) : {}),
     [cityClusters, geojson]
@@ -183,6 +178,11 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
   const countryMax = useMemo(
     () => Math.max(1, ...Object.values(countryCounts)),
+    [countryCounts]
+  );
+
+  const countryMaxDisplay = useMemo(
+    () => Math.max(0, ...Object.values(countryCounts)),
     [countryCounts]
   );
 
