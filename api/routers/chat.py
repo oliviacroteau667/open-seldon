@@ -6,6 +6,7 @@ passes the IDs of in-view messages and the API fetches their translated
 text as context before calling the LLM.
 """
 from __future__ import annotations
+import json
 import logging
 from typing import AsyncIterator
 
@@ -35,7 +36,11 @@ Keep answers under 150 words unless the question clearly requires more detail.
 Each context message is prefixed with its ID, e.g. [#12345]. Whenever you state a fact drawn
 from specific messages, cite them inline right after the claim using exactly that form, e.g.
 "…queues over 10 hours at Krakovets [#12345]." For several sources write [#12345][#67890].
-Cite only IDs that appear in the context and never invent IDs. Do not add a separate sources list."""
+Cite only IDs that appear in the context and never invent IDs. Do not add a separate sources list.
+
+Context messages also list their places as @Name. When you mention one of those places, tag it
+inline as [@Name] using the exact spelling from the context, e.g. "queues at [@Krakovets] [#12345]".
+Tag a given place at most once per sentence and never tag places that are not in the context."""
 
 
 def _get_pool():
@@ -90,8 +95,15 @@ async def chat(
         for r in rows:
             cats = ", ".join(r["categories"] or [])
             date_str = r["date"].strftime("%d %b %H:%M")
+            geo = r["geocoded_locations"]
+            if isinstance(geo, str):
+                try:
+                    geo = json.loads(geo)
+                except Exception:
+                    geo = []
+            places = " ".join(f"@{loc['name']}" for loc in (geo or []) if loc.get("name"))
             context_lines.append(
-                f"[#{r['id']}] [{r['channel_name']} · {date_str}] ({cats}): {r['translation'] or ''}"
+                f"[#{r['id']}] [{r['channel_name']} · {date_str}] ({cats}) {places}: {r['translation'] or ''}"
             )
         context = "\n".join(context_lines) or "No messages in current filter."
     else:

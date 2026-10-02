@@ -1,7 +1,7 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import type { Message } from "@/types";
+import type { MapHighlight, Message, PlaceRef } from "@/types";
 import { CATEGORIES, catKeysForMessage } from "@/types";
 import { fetchDashboard } from "@/lib/api";
 import { useWindowSize } from "@/hooks/useWindowSize";
@@ -51,6 +51,15 @@ export default function Dashboard() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [focusMessageId, setFocusMessageId] = useState<number | null>(null);
 
+  // Seldon → map: highlighted places and fly-to target
+  const [mapHighlight, setMapHighlight] = useState<MapHighlight | null>(null);
+  const [flyTo, setFlyTo] = useState<{ longitude: number; latitude: number; zoom: number; key: number } | null>(null);
+  const highlightCities = useMemo(() => new Set(mapHighlight?.cities ?? []), [mapHighlight]);
+  const highlightRegions = useMemo(() => new Set(mapHighlight?.regions ?? []), [mapHighlight]);
+  const flyToPlace = useCallback((p: PlaceRef) => {
+    setFlyTo({ longitude: p.lon, latitude: p.lat, zoom: p.kind === "city" ? 8 : 5, key: Date.now() });
+  }, []);
+
   // Three drag-collapsible panels: sidebar (left), messages + Seldon (right)
   const sidebar = useDragPanel({ defaultWidth: 236, min: 180, max: 360, rail: 56, grow: "right" });
   const feed = useDragPanel({ defaultWidth: 360, min: 260, max: 640, rail: 44, grow: "left" });
@@ -89,6 +98,33 @@ export default function Dashboard() {
     () => allMessages.filter((m) => channelsOn[m.channel] !== false),
     [allMessages, channelsOn]
   );
+
+  const messagesById = useMemo(() => new Map(allMessages.map((m) => [m.id, m])), [allMessages]);
+  const resolveMessage = useCallback((id: number) => messagesById.get(id), [messagesById]);
+
+  // Known places (lowercased name → coordinates) so Seldon's [@Place] tags can be located
+  const placeIndex = useMemo(() => {
+    const cities = new Map<string, PlaceRef>();
+    const regions = new Map<string, PlaceRef>();
+    for (const m of allMessages) {
+      if (m.city && m.lat != null && m.lon != null && !cities.has(m.city.toLowerCase())) {
+        cities.set(m.city.toLowerCase(), { kind: "city", name: m.city, lat: m.lat, lon: m.lon });
+      }
+      for (const loc of m.geocoded_locations ?? []) {
+        const key = loc.name.toLowerCase();
+        if (loc.type === "city" || loc.type == null) {
+          if (!cities.has(key)) cities.set(key, { kind: "city", name: loc.name, lat: loc.lat, lon: loc.lon });
+        } else if (!regions.has(key)) {
+          regions.set(key, { kind: "region", name: loc.name, lat: loc.lat, lon: loc.lon });
+        }
+      }
+    }
+    return { cities, regions };
+  }, [allMessages]);
+  const resolvePlace = useCallback((name: string): PlaceRef | null => {
+    const key = name.trim().toLowerCase();
+    return placeIndex.cities.get(key) ?? placeIndex.regions.get(key) ?? null;
+  }, [placeIndex]);
 
   const dayCounts = useMemo(() => buildDayBuckets(channelMessages, DAYS), [channelMessages]);
 
@@ -250,6 +286,9 @@ export default function Dashboard() {
           onRegionClick={setRegionFilter}
           onCityRegionMap={setCityToRegion}
           sidebarWidth={sidebarW}
+          highlightCities={highlightCities}
+          highlightRegions={highlightRegions}
+          flyTo={flyTo}
         />
 
         {/* Bottom-left overlay: category breakdown */}
@@ -348,6 +387,10 @@ export default function Dashboard() {
                 collapsed={chat.collapsed}
                 onRailMouseDown={chat.startDrag}
                 onCiteClick={setFocusMessageId}
+                resolveMessage={resolveMessage}
+                resolvePlace={resolvePlace}
+                onHighlight={setMapHighlight}
+                onFlyTo={flyToPlace}
               />
             </div>
           </div>

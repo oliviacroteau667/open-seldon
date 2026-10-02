@@ -25,6 +25,18 @@ export interface DashboardData {
   channels: string[];
 }
 
+export interface PlaceRef {
+  kind: "city" | "region";
+  name: string;
+  lat: number;
+  lon: number;
+}
+
+export interface MapHighlight {
+  cities: string[];
+  regions: string[];
+}
+
 export interface Category {
   key: string;
   name: string;

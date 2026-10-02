@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { streamChat } from "@/lib/api";
+import type { MapHighlight, Message, PlaceRef } from "@/types";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -12,11 +13,32 @@ interface Props {
   collapsed: boolean;
   onRailMouseDown: (e: React.MouseEvent) => void; // the collapsed rail is itself the drag handle
   onCiteClick?: (messageId: number) => void;
+  resolveMessage?: (id: number) => Message | undefined;
+  resolvePlace?: (name: string) => PlaceRef | null;
+  onHighlight?: (h: MapHighlight | null) => void;
+  onFlyTo?: (place: PlaceRef) => void;
 }
 
-interface CiteCtx {
+interface InlineCtx {
   index: Map<number, number>;
-  onClick?: (id: number) => void;
+  onCiteClick?: (id: number) => void;
+  onCiteHover?: (id: number | null) => void;
+  resolvePlace?: (name: string) => PlaceRef | null;
+  onPlaceHover?: (place: PlaceRef | null) => void;
+  onPlaceClick?: (place: PlaceRef) => void;
+}
+
+function highlightForPlace(p: PlaceRef): MapHighlight {
+  return p.kind === "city" ? { cities: [p.name], regions: [] } : { cities: [], regions: [p.name] };
+}
+
+function highlightForMessage(m: Message): MapHighlight {
+  return {
+    cities: m.city ? [m.city] : [],
+    regions: (m.geocoded_locations ?? [])
+      .filter((l) => l.type === "country" || l.type === "region")
+      .map((l) => l.name),
+  };
 }
 
 const CITE_RE = /\[#\d+(?:\s*,\s*#?\d+)*\]/g;
@@ -44,27 +66,45 @@ const MONO = "'Space Mono', monospace";
 const SANS = "'Instrument Sans', sans-serif";
 
 // ── Minimal markdown: paragraphs, bullet/numbered lists, **bold**, *italic*, `code`, [links](url)
-function renderInline(text: string, cite: CiteCtx): React.ReactNode[] {
+function renderInline(text: string, ctx: InlineCtx): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
-  const re = /(\[#\d+(?:\s*,\s*#?\d+)*\]|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|\[[^\]]+\]\((https?:\/\/[^)\s]+)\))/g;
+  const re = /(\[@[^\]\n]+\]|\[#\d+(?:\s*,\s*#?\d+)*\]|\*\*[^*]+\*\*|\*[^*\s][^*]*\*|`[^`]+`|\[[^\]]+\]\((https?:\/\/[^)\s]+)\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) parts.push(text.slice(last, m.index));
     const tok = m[0];
-    if (tok.startsWith("[#")) {
+    if (tok.startsWith("[@")) {
+      const name = tok.slice(2, -1).trim();
+      const place = ctx.resolvePlace?.(name) ?? null;
+      parts.push(
+        <button
+          key={i++}
+          disabled={!place}
+          onClick={() => place && ctx.onPlaceClick?.(place)}
+          onMouseEnter={(e) => { if (!place) return; ctx.onPlaceHover?.(place); (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,124,246,.3)"; (e.currentTarget as HTMLButtonElement).style.color = "#FFFFFF"; }}
+          onMouseLeave={(e) => { if (!place) return; ctx.onPlaceHover?.(null); (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,124,246,.12)"; (e.currentTarget as HTMLButtonElement).style.color = "#C9C4E4"; }}
+          title={place ? `Show ${name} on the map` : `${name} isn't on the map`}
+          aria-label={place ? `Show ${name} on the map` : name}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, height: 18, padding: "0 7px 0 5px", margin: "0 1px", verticalAlign: "text-bottom", borderRadius: 999, border: place ? "1px solid rgba(179,168,255,.45)" : "1px dashed rgba(154,147,184,.4)", background: place ? "rgba(139,124,246,.12)" : "transparent", color: place ? "#C9C4E4" : "#9A93B8", font: `500 11px/1 ${SANS}`, cursor: place ? "pointer" : "default", whiteSpace: "nowrap" }}
+        >
+          <span aria-hidden="true" style={{ font: `400 9px/1 ${MONO}`, color: place ? "#8B7CF6" : "#5A5478" }}>◎</span>
+          {name}
+        </button>
+      );
+    } else if (tok.startsWith("[#")) {
       for (const id of citedIds(tok)) {
-        const n = cite.index.get(id) ?? "?";
+        const n = ctx.index.get(id) ?? "?";
         parts.push(
           <button
             key={i++}
-            onClick={() => cite.onClick?.(id)}
+            onClick={() => ctx.onCiteClick?.(id)}
             title={`Open message #${id}`}
             aria-label={`Open cited message ${n}`}
             style={{ display: "inline-grid", placeItems: "center", minWidth: 16, height: 16, padding: "0 4px", margin: "0 1px", verticalAlign: "text-top", borderRadius: 4, border: "1px solid rgba(139,124,246,.5)", background: "rgba(139,124,246,.14)", color: "#B4A9FF", font: `700 9px/1 ${MONO}`, cursor: "pointer" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#0A0912"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,124,246,.14)"; (e.currentTarget as HTMLButtonElement).style.color = "#B4A9FF"; }}
+            onMouseEnter={(e) => { ctx.onCiteHover?.(id); (e.currentTarget as HTMLButtonElement).style.background = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#0A0912"; }}
+            onMouseLeave={(e) => { ctx.onCiteHover?.(null); (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,124,246,.14)"; (e.currentTarget as HTMLButtonElement).style.color = "#B4A9FF"; }}
           >
             {n}
           </button>
@@ -98,8 +138,8 @@ const P_STYLE: React.CSSProperties = { font: `400 13px/1.6 ${SANS}`, color: "#ED
 const LIST_STYLE: React.CSSProperties = { margin: "0 0 10px", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 };
 const LI_STYLE: React.CSSProperties = { font: `400 13px/1.55 ${SANS}`, color: "#EDEBFA" };
 
-function Markdown({ text, onCiteClick }: { text: string; onCiteClick?: (id: number) => void }) {
-  const cite: CiteCtx = { index: buildCiteIndex(text), onClick: onCiteClick };
+function Markdown({ text, ctx: partial }: { text: string; ctx: Omit<InlineCtx, "index"> }) {
+  const cite: InlineCtx = { ...partial, index: buildCiteIndex(text) };
   const blocks: React.ReactNode[] = [];
   let para: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
@@ -148,13 +188,34 @@ function Markdown({ text, onCiteClick }: { text: string; onCiteClick?: (id: numb
   return <>{blocks}</>;
 }
 
-export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, onCiteClick }: Props) {
+export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, onCiteClick, resolveMessage, resolvePlace, onHighlight, onFlyTo }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamingRef = useRef(false);
+
+  // Map highlight: hover is transient, pinned sticks until the same place is clicked again or CLEAR
+  const [pinned, setPinned] = useState<MapHighlight | null>(null);
+  const [hover, setHover] = useState<MapHighlight | null>(null);
+  useEffect(() => { onHighlight?.(hover ?? pinned); }, [hover, pinned, onHighlight]);
+
+  const inlineCtx: Omit<InlineCtx, "index"> = {
+    onCiteClick,
+    resolvePlace,
+    onCiteHover: (id) => {
+      if (id == null) { setHover(null); return; }
+      const m = resolveMessage?.(id);
+      setHover(m ? highlightForMessage(m) : null);
+    },
+    onPlaceHover: (p) => setHover(p ? highlightForPlace(p) : null),
+    onPlaceClick: (p) => {
+      const h = highlightForPlace(p);
+      setPinned((prev) => (prev && prev.cities[0] === h.cities[0] && prev.regions[0] === h.regions[0]) ? null : h);
+      onFlyTo?.(p);
+    },
+  };
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
@@ -224,7 +285,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {messages.length > 0 && !streaming && (
             <button
-              onClick={() => setMessages([])}
+              onClick={() => { setMessages([]); setPinned(null); setHover(null); }}
               style={{ font: `400 10px ${MONO}`, color: "#F5A524", background: "none", border: "none", padding: 0, cursor: "pointer" }}
             >
               CLEAR ✕
@@ -267,7 +328,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
           ) : (
             <div key={i} style={{ alignSelf: "stretch", maxWidth: "100%", wordBreak: "break-word" }}>
               {m.text ? (
-                <Markdown text={m.text} onCiteClick={onCiteClick} />
+                <Markdown text={m.text} ctx={inlineCtx} />
               ) : (
                 <span className="typing-dots" aria-label="Seldon is typing"><i /><i /><i /></span>
               )}

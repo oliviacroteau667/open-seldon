@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Map, { type MapRef } from "react-map-gl/maplibre";
 import { DeckGL } from "@deck.gl/react";
+import { FlyToInterpolator, type MapViewState } from "@deck.gl/core";
 import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { FeatureCollection, Feature, Polygon, MultiPolygon, GeoJsonProperties } from "geojson";
 import type { Message, CityCluster } from "@/types";
@@ -35,6 +36,9 @@ interface Props {
   onRegionClick?: (name: string | null) => void;
   onCityRegionMap?: (map: Record<string, string>) => void;
   sidebarWidth?: number;
+  highlightCities?: Set<string>;
+  highlightRegions?: Set<string>;
+  flyTo?: { longitude: number; latitude: number; zoom: number; key: number } | null;
 }
 
 // Ray-casting point-in-polygon (handles Polygon and MultiPolygon)
@@ -122,6 +126,30 @@ function computeCountryCounts(
   return counts;
 }
 
+// Geocoded country name (lowercased) → Natural Earth ADMIN name, so highlights match the polygons
+function computeCountryNameMap(
+  messages: Message[],
+  geojson: FeatureCollection
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  const features = geojson.features as Feature<Polygon | MultiPolygon, GeoJsonProperties>[];
+  for (const m of messages) {
+    for (const loc of m.geocoded_locations ?? []) {
+      if (loc.type !== "country") continue;
+      const key = loc.name.toLowerCase();
+      if (map[key]) continue;
+      for (const feature of features) {
+        if (!feature.geometry) continue;
+        if (pointInPolygon(loc.lon, loc.lat, feature as Feature<Polygon | MultiPolygon>)) {
+          map[key] = String(feature.properties?.["ADMIN"] ?? feature.properties?.["NAME"] ?? "");
+          break;
+        }
+      }
+    }
+  }
+  return map;
+}
+
 function fitViewToMessages(messages: Message[]) {
   const coords = messages.filter((m) => m.lat != null && m.lon != null);
   if (coords.length === 0) {
@@ -143,7 +171,7 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0 }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, highlightCities, highlightRegions, flyTo }: Props) {
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
   const [worldGeojson, setWorldGeojson] = useState<FeatureCollection | null>(null);
 
@@ -186,8 +214,68 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     [countryCounts]
   );
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialViewState = useMemo(() => fitViewToMessages(messages), []);
-  const [zoom, setZoom] = useState<number>(initialViewState.zoom);
+  const [viewState, setViewState] = useState<MapViewState>(initialViewState);
+  const zoom = viewState.zoom;
+
+  useEffect(() => {
+    if (!flyTo) return;
+    setViewState((v) => ({
+      ...v,
+      longitude: flyTo.longitude,
+      latitude: flyTo.latitude,
+      zoom: flyTo.zoom,
+      transitionDuration: 900,
+      transitionInterpolator: new FlyToInterpolator({ speed: 1.6 }),
+    }));
+  }, [flyTo]);
+
+  const countryNameMap = useMemo(
+    () => (worldGeojson ? computeCountryNameMap(messages, worldGeojson) : {}),
+    [messages, worldGeojson]
+  );
+
+  const highlightedCountries = useMemo(() => {
+    const s = new Set<string>();
+    for (const n of highlightRegions ?? []) {
+      s.add(n);
+      const admin = countryNameMap[n.toLowerCase()];
+      if (admin) s.add(admin);
+    }
+    return s;
+  }, [highlightRegions, countryNameMap]);
+
+  const hasCityHighlight = (highlightCities?.size ?? 0) > 0;
+
+  // Pulse clock only runs while a city is highlighted
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    if (!hasCityHighlight) return;
+    let raf = 0;
+    const t0 = performance.now();
+    const loop = (t: number) => { setPulse((t - t0) / 1000); raf = requestAnimationFrame(loop); };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [hasCityHighlight]);
+
+  const ringLayer = useMemo(() => {
+    if (!hasCityHighlight) return null;
+    const wave = (Math.sin(pulse * 4) + 1) / 2;
+    return new ScatterplotLayer<CityCluster>({
+      id: "city-highlight-ring",
+      data: cityClusters.filter((d) => highlightCities!.has(d.city)),
+      getPosition: (d) => [d.lon, d.lat, 0],
+      radiusUnits: "pixels",
+      getRadius: (d) => (d.count > 0 ? 6 + Math.sqrt(d.count) * 2.6 : 4) + 10 + wave * 8,
+      filled: false,
+      stroked: true,
+      getLineColor: [179, 168, 255, Math.round(230 - wave * 150)],
+      lineWidthMinPixels: 2,
+      getLineWidth: 2,
+      updateTriggers: { getRadius: [cityClusters, pulse], getLineColor: pulse },
+    });
+  }, [hasCityHighlight, highlightCities, cityClusters, pulse]);
 
   const layers = useMemo(() => {
     const out = [];
@@ -203,14 +291,26 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           filled: true,
           getFillColor: (f: Feature) => {
             const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            if (highlightedCountries.has(name)) return [179, 168, 255, Math.round(0.5 * 255)];
             if (name === selectedRegion) return [179, 168, 255, Math.round(0.45 * 255)];
             const count = countryCounts[name] ?? 0;
             const a = count > 0 ? 0.06 + Math.pow(count / countryMax, 0.6) * 0.50 : 0;
             return [139, 124, 246, Math.round(a * 255)];
           },
-          getLineColor: [80, 70, 100, 50],
-          lineWidthMinPixels: 0.5,
-          updateTriggers: { getFillColor: [countryCounts, countryMax, selectedRegion] },
+          getLineColor: (f: Feature) => {
+            const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            return highlightedCountries.has(name) ? [237, 235, 250, 220] : [80, 70, 100, 50];
+          },
+          getLineWidth: (f: Feature) => {
+            const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            return highlightedCountries.has(name) ? 2 : 0.5;
+          },
+          lineWidthUnits: "pixels",
+          updateTriggers: {
+            getFillColor: [countryCounts, countryMax, selectedRegion, highlightedCountries],
+            getLineColor: highlightedCountries,
+            getLineWidth: highlightedCountries,
+          },
           transitions: { getFillColor: 300 },
         })
       );
@@ -226,14 +326,18 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           filled: true,
           getFillColor: (f: Feature) => {
             const name = String(f.properties?.[REGION_NAME_PROP] ?? "");
+            if (highlightRegions?.has(name)) return [179, 168, 255, Math.round(0.6 * 255)];
             if (name === selectedRegion) return [179, 168, 255, Math.round(0.55 * 255)];
             const count = regionCounts[name] ?? 0;
             const a = alphaForCount(count, regionMax);
             return [139, 124, 246, Math.round(a * 255)];
           },
-          getLineColor: [179, 168, 255, 140],
+          getLineColor: (f: Feature) => {
+            const name = String(f.properties?.[REGION_NAME_PROP] ?? "");
+            return highlightRegions?.has(name) ? [237, 235, 250, 230] : [179, 168, 255, 140];
+          },
           lineWidthMinPixels: 1,
-          updateTriggers: { getFillColor: [regionCounts, regionMax, selectedRegion] },
+          updateTriggers: { getFillColor: [regionCounts, regionMax, selectedRegion, highlightRegions], getLineColor: highlightRegions },
           transitions: { getFillColor: 300 },
         })
       );
@@ -248,15 +352,25 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         getPosition: (d) => [d.lon, d.lat, 0],
         getRadius: (d) => {
           const base = d.count > 0 ? 6 + Math.sqrt(d.count) * 2.6 : 4;
-          return selectedCity === d.city ? base + 4 : base;
+          return base + (selectedCity === d.city ? 4 : 0) + (highlightCities?.has(d.city) ? 3 : 0);
         },
         radiusUnits: "pixels",
-        getFillColor: (d) => selectedCity === d.city ? [255, 200, 50, 240] : [100, 184, 55, 140],
-        getLineColor: (d) => selectedCity === d.city ? [255, 200, 50, 160] : [100, 184, 55, 50],
+        getFillColor: (d) =>
+          selectedCity === d.city ? [255, 200, 50, 240]
+          : highlightCities?.has(d.city) ? [179, 168, 255, 240]
+          : [100, 184, 55, 140],
+        getLineColor: (d) =>
+          selectedCity === d.city ? [255, 200, 50, 160]
+          : highlightCities?.has(d.city) ? [255, 255, 255, 200]
+          : [100, 184, 55, 50],
         lineWidthMinPixels: 0,
         stroked: true,
         getLineWidth: 4,
-        updateTriggers: { getRadius: [cityClusters, selectedCity], getFillColor: selectedCity, getLineColor: selectedCity },
+        updateTriggers: {
+          getRadius: [cityClusters, selectedCity, highlightCities],
+          getFillColor: [selectedCity, highlightCities],
+          getLineColor: [selectedCity, highlightCities],
+        },
       })
     );
 
@@ -279,7 +393,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     );
 
     return out;
-  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom, selectedRegion, selectedCity]);
+  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom, selectedRegion, selectedCity, highlightCities, highlightRegions, highlightedCountries]);
 
   const activeStyle = { color: "#EDEBFA", border: "1px solid #8B7CF6" };
   const inactiveStyle = { color: "#9A93B8", border: "1px solid #2B2745" };
@@ -288,11 +402,11 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} role="application" aria-label="Message map">
       {/* DeckGL manages its own canvas; Map provides the basemap underneath */}
       <DeckGL
-        initialViewState={initialViewState}
+        viewState={viewState}
         controller={true}
-        layers={layers}
+        layers={ringLayer ? [...layers, ringLayer] : layers}
         style={{ position: "absolute", top: "0", left: "0", right: "0", bottom: "0" }}
-        onViewStateChange={({ viewState }) => setZoom((viewState as { zoom: number }).zoom)}
+        onViewStateChange={({ viewState: vs }) => setViewState(vs as MapViewState)}
         getCursor={({ isDragging, isHovering }) => isDragging ? "grabbing" : isHovering ? "pointer" : "grab"}
         onClick={(info) => {
           if (info.layer?.id === "city-scatter") {
