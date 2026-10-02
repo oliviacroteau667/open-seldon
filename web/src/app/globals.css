@@ -11,6 +11,7 @@
   --bg: #0A0912;
   --panel: rgba(22,19,38,.6);
   --panel-strong: rgba(22,19,38,.86);
+  --card: rgba(30,27,48,.82);
   --border: #221F33;
   --border-faint: rgba(255,255,255,.05);
   --line: #2B2745;
@@ -51,6 +52,7 @@
   --bg: #ECEAF3;
   --panel: rgba(224,220,238,.5);
   --panel-strong: rgba(224,220,238,.82);
+  --card: rgba(244,242,251,.82);
   --border: #D3CFE3;
   --border-faint: rgba(20,18,42,.05);
   --line: #CFCBE0;

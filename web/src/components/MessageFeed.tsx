@@ -308,7 +308,7 @@ function MessageCard({ message: m, isReply, hasReplies, onViewThread, highlighte
       gap: 8,
       borderLeft: `3px solid ${primaryCat?.color ?? "var(--line-strong)"}`,
       margin: isReply ? "10px 8px 10px 24px" : "10px 8px",
-      background: highlighted ? "var(--accent-tint)" : "var(--hover)",
+      background: highlighted ? "var(--accent-tint)" : "var(--card)",
       outline: highlighted ? "1px solid var(--accent-outline)" : "none",
       borderRadius: 6,
       transition: "background .3s, outline-color .3s",
