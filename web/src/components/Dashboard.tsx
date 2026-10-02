@@ -1,10 +1,11 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Message } from "@/types";
 import { CATEGORIES, catKeysForMessage } from "@/types";
 import { fetchDashboard } from "@/lib/api";
 import { useWindowSize } from "@/hooks/useWindowSize";
+import { useDragPanel } from "@/hooks/useDragPanel";
 import Sidebar from "./Sidebar";
 import DateSlider from "./DateSlider";
 import CategoryBreakdown from "./CategoryBreakdown";
@@ -44,49 +45,24 @@ export default function Dashboard() {
   const [cityFilter, setCityFilter] = useState<string | null>(null);
   const [regionFilter, setRegionFilter] = useState<string | null>(null);
   const [cityToRegion, setCityToRegion] = useState<Record<string, string>>({});
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  // Auto-collapse sidebar on small viewports
-  useEffect(() => {
-    setSidebarCollapsed(isSmall);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSmall]);
   const [channelsOn, setChannelsOn] = useState<Record<string, boolean>>({});
   const [range, setRange] = useState<[number, number] | null>(null);
   const [showRegions, setShowRegions] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [focusMessageId, setFocusMessageId] = useState<number | null>(null);
 
-  const [panelWidth, setPanelWidth] = useState(360);
-  const [chatWidth, setChatWidth] = useState(360);
-  const [chatCollapsed, setChatCollapsed] = useState(false);
-  // Auto-collapse the analyst panel on small viewports, like the sidebar
+  // Three drag-collapsible panels: sidebar (left), messages + Seldon (right)
+  const sidebar = useDragPanel({ defaultWidth: 236, min: 180, max: 360, rail: 56, grow: "right" });
+  const feed = useDragPanel({ defaultWidth: 360, min: 260, max: 640, rail: 44, grow: "left" });
+  const chat = useDragPanel({ defaultWidth: 360, min: 300, max: Math.max(300, Math.floor(width / 3)), rail: 44, grow: "left" });
+
+  // Auto-collapse the sidebar and Seldon on small viewports
+  const { setCollapsed: setSidebarCollapsed } = sidebar;
+  const { setCollapsed: setChatCollapsed } = chat;
   useEffect(() => {
+    setSidebarCollapsed(isSmall);
     setChatCollapsed(isSmall);
-  }, [isSmall]);
-  const isResizing = useRef(false);
-
-  const CHAT_RAIL = 44;
-  const chatMax = Math.max(300, Math.floor(width / 3));
-  const chatW = chatCollapsed ? CHAT_RAIL : Math.min(chatWidth, chatMax);
-
-  function dragWidth(e: React.MouseEvent, start: number, min: number, max: number, set: (w: number) => void) {
-    e.preventDefault();
-    isResizing.current = true;
-    const startX = e.clientX;
-    const onMove = (ev: MouseEvent) => {
-      set(Math.max(min, Math.min(max, start + startX - ev.clientX)));
-    };
-    const onUp = () => {
-      isResizing.current = false;
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }
-
-  const startPanelDrag = (e: React.MouseEvent) => dragWidth(e, panelWidth, 260, 640, setPanelWidth);
-  const startChatDrag = (e: React.MouseEvent) => dragWidth(e, chatW, 300, chatMax, setChatWidth);
+  }, [isSmall, setSidebarCollapsed, setChatCollapsed]);
 
   useEffect(() => {
     fetchDashboard()
@@ -240,14 +216,16 @@ export default function Dashboard() {
     );
   }
 
-  const sidebarW = sidebarCollapsed ? 56 : 236;
+  const sidebarW = sidebar.width;
   const leftPad = sidebarW + 20;
+  const anyDragging = sidebar.dragging || feed.dragging || chat.dragging;
+  const overlayTransition = anyDragging ? "none" : "left .2s, right .2s";
 
   return (
     <div style={{ width: "100%", height: "100vh", background: "#0A0912", overflow: "hidden", userSelect: "none", position: "relative" }}>
       <div style={{ position: "absolute", inset: 0 }}>
         {/* Top bar: always above the map */}
-        <div style={{ position: "absolute", left: leftPad, right: 20, top: 16, display: "flex", alignItems: "center", zIndex: 10, pointerEvents: "none", transition: "left .2s" }}>
+        <div style={{ position: "absolute", left: leftPad, right: 20, top: 16, display: "flex", alignItems: "center", zIndex: 10, pointerEvents: "none", transition: overlayTransition }}>
           <div style={{ flex: "0 1 480px", pointerEvents: "auto" }}>
             <DateSlider
               dayCounts={dayCounts}
@@ -275,7 +253,7 @@ export default function Dashboard() {
         />
 
         {/* Bottom-left overlay: category breakdown */}
-        <div style={{ position: "absolute", left: leftPad, right: panelWidth + chatW + 20, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none", transition: "left .2s" }}>
+        <div style={{ position: "absolute", left: leftPad, right: feed.width + chat.width + 20, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none", transition: overlayTransition }}>
           <div style={{ pointerEvents: "auto", flex: "1 1 320px", maxWidth: 500, minWidth: 0 }}>
             <CategoryBreakdown
               categoryCounts={categoryCounts}
@@ -291,8 +269,10 @@ export default function Dashboard() {
         {/* Left sidebar: full-height overlay on top of the map */}
         <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, zIndex: 20 }}>
           <Sidebar
-            collapsed={sidebarCollapsed}
-            onToggle={() => setSidebarCollapsed((c) => !c)}
+            width={sidebar.width}
+            collapsed={sidebar.collapsed}
+            dragging={sidebar.dragging}
+            onHandleMouseDown={sidebar.startDrag}
             channels={channels}
             channelsOn={channelsOn}
             onToggleChannel={(ch) => setChannelsOn((prev) => ({ ...prev, [ch]: !prev[ch] }))}
@@ -304,20 +284,22 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Right panels: messages + analyst, full-height overlays on top of the map */}
+        {/* Right panels: messages + Seldon, full-height overlays on top of the map */}
         <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 10, display: "flex", flexDirection: "row" }}>
           {/* Messages panel */}
           <div style={{
-            width: panelWidth,
+            width: feed.width,
             borderLeft: "1px solid rgba(255,255,255,.07)",
             background: "rgba(18,16,30,.68)",
             backdropFilter: "blur(20px)",
             display: "flex",
             flexDirection: "row",
             overflow: "hidden",
+            transition: feed.dragging ? "none" : "width .2s",
           }}>
             <div
-              onMouseDown={startPanelDrag}
+              onMouseDown={feed.startDrag}
+              aria-hidden="true"
               style={{ width: 6, flexShrink: 0, cursor: "ew-resize", zIndex: 5 }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
@@ -335,35 +317,36 @@ export default function Dashboard() {
                 onRegionFilter={setRegionFilter}
                 focusMessageId={focusMessageId}
                 onFocusConsumed={() => setFocusMessageId(null)}
+                collapsed={feed.collapsed}
+                onRailMouseDown={feed.startDrag}
                 flush
               />
             </div>
           </div>
 
-          {/* Analyst panel */}
+          {/* Seldon panel */}
           <div style={{
-            width: chatW,
+            width: chat.width,
             borderLeft: "1px solid rgba(255,255,255,.07)",
             background: "rgba(18,16,30,.68)",
             backdropFilter: "blur(20px)",
             display: "flex",
             flexDirection: "row",
             overflow: "hidden",
-            transition: chatCollapsed ? "width .2s" : undefined,
+            transition: chat.dragging ? "none" : "width .2s",
           }}>
-            {!chatCollapsed && (
-              <div
-                onMouseDown={startChatDrag}
-                style={{ width: 6, flexShrink: 0, cursor: "ew-resize", zIndex: 5 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
-              />
-            )}
+            <div
+              onMouseDown={chat.startDrag}
+              aria-hidden="true"
+              style={{ width: 6, flexShrink: 0, cursor: "ew-resize", zIndex: 5 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+            />
             <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
               <AnalystChat
                 contextIds={inRange.map((m) => m.id)}
-                collapsed={chatCollapsed}
-                onToggleCollapse={() => setChatCollapsed((c) => !c)}
+                collapsed={chat.collapsed}
+                onRailMouseDown={chat.startDrag}
                 onCiteClick={setFocusMessageId}
               />
             </div>

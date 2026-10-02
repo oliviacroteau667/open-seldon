@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { streamChat } from "@/lib/api";
-import { PanelToggle } from "./PanelToggle";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -11,7 +10,7 @@ interface ChatMessage {
 interface Props {
   contextIds: number[];
   collapsed: boolean;
-  onToggleCollapse: () => void;
+  onRailMouseDown: (e: React.MouseEvent) => void; // the collapsed rail is itself the drag handle
   onCiteClick?: (messageId: number) => void;
 }
 
@@ -149,7 +148,7 @@ function Markdown({ text, onCiteClick }: { text: string; onCiteClick?: (id: numb
   return <>{blocks}</>;
 }
 
-export default function AnalystChat({ contextIds, collapsed, onToggleCollapse, onCiteClick }: Props) {
+export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, onCiteClick }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -200,14 +199,10 @@ export default function AnalystChat({ contextIds, collapsed, onToggleCollapse, o
   if (collapsed) {
     return (
       <div
-        role="button"
-        tabIndex={0}
-        aria-label="Expand Seldon panel"
-        onClick={onToggleCollapse}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleCollapse(); } }}
-        style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 16, cursor: "pointer" }}
+        onMouseDown={onRailMouseDown}
+        aria-label="Seldon panel (drag to expand)"
+        style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 0", gap: 14, cursor: "ew-resize", userSelect: "none" }}
       >
-        <PanelToggle pointRight={false} onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }} ariaLabel="Expand Seldon panel" />
         <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#8B7CF6" }} />
         <span aria-hidden="true" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", font: `400 10px ${MONO}`, letterSpacing: ".12em", color: "#9A93B8" }}>
           SELDON
@@ -238,7 +233,6 @@ export default function AnalystChat({ contextIds, collapsed, onToggleCollapse, o
           <span style={{ font: `400 10px ${MONO}`, color: "#9A93B8", whiteSpace: "nowrap" }}>
             {contextIds.length} IN VIEW
           </span>
-          <PanelToggle pointRight onClick={onToggleCollapse} ariaLabel="Collapse Seldon panel" />
         </div>
       </div>
 

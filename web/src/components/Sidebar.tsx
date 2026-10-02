@@ -1,10 +1,11 @@
 "use client";
-import React, { useState } from "react";
-import { PanelToggle } from "./PanelToggle";
+import React from "react";
 
 interface Props {
+  width: number;
   collapsed: boolean;
-  onToggle: () => void;
+  dragging: boolean;
+  onHandleMouseDown: (e: React.MouseEvent) => void;
   channels: string[];
   channelsOn: Record<string, boolean>;
   onToggleChannel: (ch: string) => void;
@@ -25,37 +26,14 @@ function activateOnEnterSpace(fn: () => void) {
   };
 }
 
-export default function Sidebar({ collapsed, onToggle, channels, channelsOn, onToggleChannel, onToggleAll, channelCounts }: Props) {
+export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHandleMouseDown, channels, channelsOn, onToggleChannel, onToggleAll, channelCounts }: Props) {
   const allOn = channels.every((c) => channelsOn[c] !== false);
-  const [dragWidth, setDragWidth] = useState<number | null>(null);
-
-  const displayW = dragWidth !== null ? dragWidth : (collapsed ? 56 : 236);
-  const isCollapsed = dragWidth !== null ? dragWidth < 100 : collapsed;
-
-  function startDrag(e: React.MouseEvent) {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = collapsed ? 56 : 236;
-    const onMove = (ev: MouseEvent) => {
-      setDragWidth(Math.max(40, Math.min(360, startW + ev.clientX - startX)));
-    };
-    const onUp = (ev: MouseEvent) => {
-      const finalW = Math.max(40, Math.min(360, startW + ev.clientX - startX));
-      setDragWidth(null);
-      const willCollapse = finalW < 150;
-      if (willCollapse !== collapsed) onToggle();
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }
 
   return (
     <nav
       aria-label="Main navigation"
       style={{
-        width: displayW,
+        width,
         flex: "none",
         background: "rgba(18,16,30,.68)",
         backdropFilter: "blur(20px)",
@@ -64,7 +42,7 @@ export default function Sidebar({ collapsed, onToggle, channels, channelsOn, onT
         flexDirection: "column",
         padding: "14px 10px",
         gap: 2,
-        transition: dragWidth !== null ? "none" : "width .2s",
+        transition: dragging ? "none" : "width .2s",
         overflow: "hidden",
         zIndex: 20,
         position: "relative",
@@ -72,17 +50,15 @@ export default function Sidebar({ collapsed, onToggle, channels, channelsOn, onT
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "2px 6px 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 6px 16px", whiteSpace: "nowrap" }}>
+        <span aria-hidden="true" style={{ width: 20, flexShrink: 0, textAlign: "center", font: "700 11px 'Space Mono', monospace", color: "#8B7CF6" }}>
+          OS
+        </span>
         {!isCollapsed && (
-          <span style={{ font: "700 14px 'Instrument Sans', sans-serif", letterSpacing: "-.01em", whiteSpace: "nowrap", color: "#EDEBFA" }}>
+          <span style={{ font: "700 14px 'Instrument Sans', sans-serif", letterSpacing: "-.01em", color: "#EDEBFA" }}>
             Open Seldon
           </span>
         )}
-        <PanelToggle
-          pointRight={isCollapsed}
-          onClick={onToggle}
-          ariaLabel={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-        />
       </div>
 
       {/* Pages */}
@@ -218,11 +194,11 @@ export default function Sidebar({ collapsed, onToggle, channels, channelsOn, onT
         {!isCollapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif" }}>Settings</span>}
       </div>
 
-      {/* Right-edge drag handle */}
+      {/* Right-edge drag handle — drag inward to collapse, outward to expand */}
       <div
-        onMouseDown={startDrag}
+        onMouseDown={onHandleMouseDown}
         aria-hidden="true"
-        style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 6, cursor: "ew-resize", zIndex: 5 }}
+        style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: isCollapsed ? 10 : 6, cursor: "ew-resize", zIndex: 5 }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
       />

@@ -17,6 +17,8 @@ interface Props {
   onRegionFilter?: (name: string | null) => void;
   focusMessageId?: number | null; // open this message (bypassing filters) and highlight it
   onFocusConsumed?: () => void;
+  collapsed?: boolean;
+  onRailMouseDown?: (e: React.MouseEvent) => void; // the collapsed rail is itself the drag handle
 }
 
 function formatTime(iso: string): string {
@@ -36,7 +38,7 @@ function resolveRoot(id: number, byId: Map<number, Message>): number {
   return cur?.id ?? id;
 }
 
-export default function MessageFeed({ messages, allMessages, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter, focusMessageId, onFocusConsumed }: Props) {
+export default function MessageFeed({ messages, allMessages, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter, focusMessageId, onFocusConsumed, collapsed, onRailMouseDown }: Props) {
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
   const [highlightId, setHighlightId] = useState<number | null>(null);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
@@ -118,6 +120,22 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
     overflow: "hidden",
     zIndex: 10,
   };
+
+  // ── Collapsed rail ───────────────────────────────────────────────────────
+  if (collapsed) {
+    return (
+      <div
+        onMouseDown={onRailMouseDown}
+        aria-label="Messages panel (drag to expand)"
+        style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 0", gap: 14, cursor: "ew-resize", userSelect: "none" }}
+      >
+        <span aria-hidden="true" style={{ font: "400 10px 'Space Mono', monospace", color: "#EDEBFA" }}>{messages.length}</span>
+        <span aria-hidden="true" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", font: "400 10px 'Space Mono', monospace", letterSpacing: ".12em", color: "#9A93B8" }}>
+          MESSAGES
+        </span>
+      </div>
+    );
+  }
 
   // ── Thread view ──────────────────────────────────────────────────────────
   if (threadRootId != null && threadMessages != null) {
