@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { streamChat } from "@/lib/api";
+import { createMark, type BrandController } from "@/lib/brand";
 import type { MapHighlight, Message, PlaceRef } from "@/types";
 
 interface ChatMessage {
@@ -196,6 +197,17 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamingRef = useRef(false);
 
+  // Brand mark in the header doubles as the activity indicator (drop → revolve → rise → pulse)
+  const markHost = useRef<HTMLSpanElement>(null);
+  const markRef = useRef<BrandController | null>(null);
+  useEffect(() => {
+    if (collapsed || !markHost.current) return;
+    const mark = createMark(markHost.current, { width: 28 });
+    markRef.current = mark;
+    if (streamingRef.current) mark.start();
+    return () => { mark.destroy(); markRef.current = null; };
+  }, [collapsed]);
+
   // Map highlight: hover is transient, pinned sticks until the same place is clicked again or CLEAR
   const [pinned, setPinned] = useState<MapHighlight | null>(null);
   const [hover, setHover] = useState<MapHighlight | null>(null);
@@ -229,6 +241,15 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
     setStreaming(true);
+    markRef.current?.start();
+    // Hands settle when the first token arrives, pulse while streaming, rest when done
+    let settled: Promise<void> | null = null;
+    const settle = () => {
+      if (settled) return settled;
+      const mark = markRef.current;
+      settled = mark ? mark.finish().then(() => { if (markRef.current === mark) mark.pulse(); }) : Promise.resolve();
+      return settled;
+    };
 
     let assistantIdx = -1;
     setMessages((ms) => {
@@ -246,6 +267,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
 
     try {
       for await (const chunk of streamChat(text, contextIds.slice(0, 150))) {
+        settle();
         patchAssistant((prev) => prev + chunk);
       }
     } catch {
@@ -253,6 +275,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
     } finally {
       streamingRef.current = false;
       setStreaming(false);
+      settle().then(() => markRef.current?.idle());
     }
   }
 
@@ -264,7 +287,8 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
         aria-label="Seldon panel (drag to expand)"
         style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 0", gap: 14, cursor: "ew-resize", userSelect: "none" }}
       >
-        <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#8B7CF6" }} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/mark-dark.svg" alt="" aria-hidden="true" width={24} height={24} style={{ display: "block" }} />
         <span aria-hidden="true" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", font: `400 10px ${MONO}`, letterSpacing: ".12em", color: "#9A93B8" }}>
           SELDON
         </span>
@@ -278,8 +302,8 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header — mirrors the Messages panel header */}
       <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <span style={{ font: `600 13px ${SANS}`, color: "#EDEBFA", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
-          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#8B7CF6", boxShadow: streaming ? "0 0 0 4px rgba(139,124,246,.25)" : "none", transition: "box-shadow .2s" }} />
+        <span style={{ font: `600 13px ${SANS}`, color: "#EDEBFA", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
+          <span ref={markHost} aria-hidden="true" style={{ display: "block", width: 28, height: 28, flexShrink: 0 }} />
           Seldon
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

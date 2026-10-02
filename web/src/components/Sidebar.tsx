@@ -49,15 +49,14 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
         height: "100%",
       }}
     >
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 6px 16px", whiteSpace: "nowrap" }}>
-        <span aria-hidden="true" style={{ width: 20, flexShrink: 0, textAlign: "center", font: "700 11px 'Space Mono', monospace", color: "#8B7CF6" }}>
-          OS
-        </span>
-        {!isCollapsed && (
-          <span style={{ font: "700 14px 'Instrument Sans', sans-serif", letterSpacing: "-.01em", color: "#EDEBFA" }}>
-            Open Seldon
-          </span>
+      {/* Header — brand lockup when open, mark alone on the collapsed rail */}
+      <div style={{ display: "flex", alignItems: "center", padding: isCollapsed ? "4px 0 16px" : "4px 6px 18px", justifyContent: isCollapsed ? "center" : "flex-start", whiteSpace: "nowrap" }}>
+        {isCollapsed ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/brand/mark-dark.svg" alt="Open Seldon" width={28} height={28} style={{ display: "block" }} />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/brand/logo-primary-dark.svg" alt="Open Seldon" height={28} style={{ display: "block", height: 28, width: "auto" }} />
         )}
       </div>
 

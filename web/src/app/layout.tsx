@@ -1,9 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Open Seldon",
   description: "Humanitarian analytics dashboard for refugee community monitoring",
+  manifest: "/site.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon-glass.svg", type: "image/svg+xml" },
+      { url: "/favicon-glass-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/app-icon-180.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0A0912",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

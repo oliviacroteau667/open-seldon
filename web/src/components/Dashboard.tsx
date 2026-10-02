@@ -1,9 +1,10 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { MapHighlight, Message, PlaceRef } from "@/types";
 import { CATEGORIES, catKeysForMessage } from "@/types";
 import { fetchDashboard } from "@/lib/api";
+import { launch, type LaunchHandle } from "@/lib/brand";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { useDragPanel } from "@/hooks/useDragPanel";
 import Sidebar from "./Sidebar";
@@ -41,6 +42,24 @@ export default function Dashboard() {
   const [channels, setChannels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Brand launch screen: once per browser session, dismissed when the first data load settles
+  const launchRef = useRef<LaunchHandle | null>(null);
+  useLayoutEffect(() => {
+    try {
+      if (sessionStorage.getItem("os-launched")) return;
+      sessionStorage.setItem("os-launched", "1");
+    } catch { /* storage unavailable: still play once */ }
+    launchRef.current = launch({
+      tagline: "HUMANITARIAN OSINT, ON DEMAND.",
+      footer: "IOM POLAND",
+      width: window.innerWidth > 700 ? 424 : 254,
+      minDuration: 1800,
+    });
+  }, []);
+  useEffect(() => {
+    if (!loading) launchRef.current?.finish();
+  }, [loading]);
 
   const [cityFilter, setCityFilter] = useState<string | null>(null);
   const [regionFilter, setRegionFilter] = useState<string | null>(null);
