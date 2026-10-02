@@ -368,9 +368,6 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
             ↑
           </button>
         </div>
-        <div style={{ marginTop: 6, font: `400 10px ${MONO}`, color: "#5A5478", letterSpacing: ".04em" }}>
-          ENTER TO SEND · SHIFT+ENTER FOR NEW LINE
-        </div>
       </div>
     </div>
   );
