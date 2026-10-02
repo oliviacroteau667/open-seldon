@@ -44,15 +44,16 @@ export interface Category {
   color: string;
 }
 
+// Colours are CSS variables so each theme can supply its own set (see globals.css)
 export const CATEGORIES: Category[] = [
-  { key: "housing",    name: "Accommodation / Housing",        short: "Housing",    color: "#E8553E" },
-  { key: "legal",      name: "Legal Status / Documentation",   short: "Legal",      color: "#4F8CFF" },
-  { key: "employment", name: "Employment",                      short: "Employment", color: "#22C1B0" },
-  { key: "language",   name: "Polish Language Proficiency",     short: "Language",   color: "#F5A524" },
-  { key: "education",  name: "Education",                       short: "Education",  color: "#8B7CF6" },
-  { key: "health",     name: "Health / Mental Health",          short: "Health",     color: "#5FD068" },
-  { key: "border",     name: "Border Crossing",                 short: "Border",     color: "#38BDF8" },
-  { key: "safety",     name: "Safety / Security",               short: "Safety",     color: "#F472B6" },
+  { key: "housing",    name: "Accommodation / Housing",        short: "Housing",    color: "var(--cat-housing)" },
+  { key: "legal",      name: "Legal Status / Documentation",   short: "Legal",      color: "var(--cat-legal)" },
+  { key: "employment", name: "Employment",                      short: "Employment", color: "var(--cat-employment)" },
+  { key: "language",   name: "Polish Language Proficiency",     short: "Language",   color: "var(--cat-language)" },
+  { key: "education",  name: "Education",                       short: "Education",  color: "var(--cat-education)" },
+  { key: "health",     name: "Health / Mental Health",          short: "Health",     color: "var(--cat-health)" },
+  { key: "border",     name: "Border Crossing",                 short: "Border",     color: "var(--cat-border)" },
+  { key: "safety",     name: "Safety / Security",               short: "Safety",     color: "var(--cat-safety)" },
 ];
 
 // Maps backend category strings → frontend key

@@ -300,7 +300,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
           {messages.length > 0 && !streaming && (
             <button
               onClick={() => { setMessages([]); setPinned(null); setHover(null); }}
-              style={{ font: `400 10px ${MONO}`, color: "#F5A524", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+              style={{ font: `400 10px ${MONO}`, color: "var(--warn)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
             >
               CLEAR ✕
             </button>

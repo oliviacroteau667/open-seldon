@@ -119,7 +119,7 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
             {p.glyph}
           </span>
           {!isCollapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif", flex: 1 }}>{p.label}</span>}
-          {!isCollapsed && p.dot && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "#E8553E", flexShrink: 0 }} />}
+          {!isCollapsed && p.dot && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--negative)", flexShrink: 0 }} />}
         </div>
       ))}
 
@@ -244,7 +244,7 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
             border: "1px solid var(--line)",
             borderRadius: 10,
             backdropFilter: "blur(20px)",
-            boxShadow: "0 16px 48px rgba(0,0,0,.35)",
+            boxShadow: "var(--shadow)",
             padding: "14px 14px 12px",
             display: "flex",
             flexDirection: "column",

@@ -16,7 +16,7 @@ function trendLabel(cur: number, prev: number): { text: string; color: string } 
   if (prev === 0) return { text: "▲ new", color: "var(--lime)" };
   const pct = Math.round(((cur - prev) / prev) * 100);
   if (pct > 5) return { text: `▲${pct}%`, color: "var(--lime)" };
-  if (pct < -5) return { text: `▼${Math.abs(pct)}%`, color: "#E8553E" };
+  if (pct < -5) return { text: `▼${Math.abs(pct)}%`, color: "var(--negative)" };
   return { text: "—", color: "var(--text-3)" };
 }
 

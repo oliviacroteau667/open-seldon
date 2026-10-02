@@ -260,6 +260,13 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
   const hasCityHighlight = (highlightCities?.size ?? 0) > 0;
 
+  // deck.gl needs numeric colours, so mirror the theme's accent / lime here
+  const RGB = useMemo((): { accent: [number, number, number]; accentBright: [number, number, number]; lime: [number, number, number] } =>
+    isLight
+      ? { accent: [106, 91, 224], accentBright: [74, 59, 192], lime: [78, 154, 34] }
+      : { accent: [139, 124, 246], accentBright: [179, 168, 255], lime: [100, 184, 55] },
+  [isLight]);
+
   // Pulse clock only runs while a city is highlighted
   const [pulse, setPulse] = useState(0);
   useEffect(() => {
@@ -282,12 +289,12 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
       getRadius: (d) => (d.count > 0 ? 6 + Math.sqrt(d.count) * 2.6 : 4) + 10 + wave * 8,
       filled: false,
       stroked: true,
-      getLineColor: [179, 168, 255, Math.round(230 - wave * 150)],
+      getLineColor: [...RGB.accentBright, Math.round(230 - wave * 150)],
       lineWidthMinPixels: 2,
       getLineWidth: 2,
-      updateTriggers: { getRadius: [cityClusters, pulse], getLineColor: pulse },
+      updateTriggers: { getRadius: [cityClusters, pulse], getLineColor: [pulse, RGB] },
     });
-  }, [hasCityHighlight, highlightCities, cityClusters, pulse]);
+  }, [hasCityHighlight, highlightCities, cityClusters, pulse, RGB]);
 
   const layers = useMemo(() => {
     const out = [];
@@ -303,11 +310,11 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           filled: true,
           getFillColor: (f: Feature) => {
             const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
-            if (highlightedCountries.has(name)) return [179, 168, 255, Math.round(0.5 * 255)];
-            if (name === selectedRegion) return [179, 168, 255, Math.round(0.45 * 255)];
+            if (highlightedCountries.has(name)) return [...RGB.accentBright, Math.round(0.5 * 255)];
+            if (name === selectedRegion) return [...RGB.accentBright, Math.round(0.45 * 255)];
             const count = countryCounts[name] ?? 0;
             const a = count > 0 ? 0.06 + Math.pow(count / countryMax, 0.6) * 0.50 : 0;
-            return [139, 124, 246, Math.round(a * 255)];
+            return [...RGB.accent, Math.round(a * 255)];
           },
           getLineColor: (f: Feature) => {
             const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
@@ -320,7 +327,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           },
           lineWidthUnits: "pixels",
           updateTriggers: {
-            getFillColor: [countryCounts, countryMax, selectedRegion, highlightedCountries],
+            getFillColor: [countryCounts, countryMax, selectedRegion, highlightedCountries, RGB],
             getLineColor: [highlightedCountries, isLight],
             getLineWidth: highlightedCountries,
           },
@@ -339,18 +346,19 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           filled: true,
           getFillColor: (f: Feature) => {
             const name = String(f.properties?.[REGION_NAME_PROP] ?? "");
-            if (highlightRegions?.has(name)) return [179, 168, 255, Math.round(0.6 * 255)];
-            if (name === selectedRegion) return [179, 168, 255, Math.round(0.55 * 255)];
+            if (highlightRegions?.has(name)) return [...RGB.accentBright, Math.round(0.6 * 255)];
+            if (name === selectedRegion) return [...RGB.accentBright, Math.round(0.55 * 255)];
             const count = regionCounts[name] ?? 0;
             const a = alphaForCount(count, regionMax);
-            return [139, 124, 246, Math.round(a * 255)];
+            return [...RGB.accent, Math.round(a * 255)];
           },
           getLineColor: (f: Feature) => {
             const name = String(f.properties?.[REGION_NAME_PROP] ?? "");
-            return highlightRegions?.has(name) ? [237, 235, 250, 230] : [179, 168, 255, 140];
+            if (highlightRegions?.has(name)) return isLight ? [22, 18, 43, 200] : [237, 235, 250, 230];
+            return [...RGB.accentBright, 140];
           },
           lineWidthMinPixels: 1,
-          updateTriggers: { getFillColor: [regionCounts, regionMax, selectedRegion, highlightRegions], getLineColor: highlightRegions },
+          updateTriggers: { getFillColor: [regionCounts, regionMax, selectedRegion, highlightRegions, RGB], getLineColor: [highlightRegions, RGB] },
           transitions: { getFillColor: 300 },
         })
       );
@@ -370,19 +378,19 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         radiusUnits: "pixels",
         getFillColor: (d) =>
           selectedCity === d.city ? [255, 200, 50, 240]
-          : highlightCities?.has(d.city) ? [179, 168, 255, 240]
-          : [100, 184, 55, 140],
+          : highlightCities?.has(d.city) ? [...RGB.accentBright, 240]
+          : [...RGB.lime, 140],
         getLineColor: (d) =>
           selectedCity === d.city ? [255, 200, 50, 160]
-          : highlightCities?.has(d.city) ? [255, 255, 255, 200]
-          : [100, 184, 55, 50],
+          : highlightCities?.has(d.city) ? (isLight ? [22, 18, 43, 200] : [255, 255, 255, 200])
+          : [...RGB.lime, 50],
         lineWidthMinPixels: 0,
         stroked: true,
         getLineWidth: 4,
         updateTriggers: {
           getRadius: [cityClusters, selectedCity, highlightCities],
-          getFillColor: [selectedCity, highlightCities],
-          getLineColor: [selectedCity, highlightCities],
+          getFillColor: [selectedCity, highlightCities, RGB],
+          getLineColor: [selectedCity, highlightCities, RGB],
         },
       })
     );
@@ -406,7 +414,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     );
 
     return out;
-  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom, selectedRegion, selectedCity, highlightCities, highlightRegions, highlightedCountries, isLight]);
+  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom, selectedRegion, selectedCity, highlightCities, highlightRegions, highlightedCountries, isLight, RGB]);
 
   const activeStyle = { color: "var(--text)", border: "1px solid var(--accent)" };
   const inactiveStyle = { color: "var(--text-3)", border: "1px solid var(--line)" };
@@ -468,7 +476,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           <span>MSGS / REGION</span>
           <div style={{ display: "flex", height: 8, width: 120, borderRadius: 2, overflow: "hidden" }}>
             {[0.08, 0.22, 0.38, 0.56, 0.75].map((a, i) => (
-              <div key={i} style={{ flex: 1, background: `rgba(139,124,246,${a})` }} />
+              <div key={i} style={{ flex: 1, background: `rgba(${RGB.accent.join(",")},${a})` }} />
             ))}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>

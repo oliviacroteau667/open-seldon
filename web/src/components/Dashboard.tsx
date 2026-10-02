@@ -229,7 +229,7 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg)", color: "#E8553E", font: "400 11px 'Space Mono', monospace" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg)", color: "var(--negative)", font: "400 11px 'Space Mono', monospace" }}>
         ERROR: {error}
       </div>
     );

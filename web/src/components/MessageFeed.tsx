@@ -191,7 +191,7 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
           {(cityFilter || regionFilter) && (
             <span
               onClick={() => { onCityFilter?.(null); onRegionFilter?.(null); }}
-              style={{ font: "400 10px 'Space Mono', monospace", color: "#F5A524", cursor: "pointer" }}
+              style={{ font: "400 10px 'Space Mono', monospace", color: "var(--warn)", cursor: "pointer" }}
             >
               CLEAR ✕
             </span>
