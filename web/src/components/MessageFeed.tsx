@@ -97,8 +97,8 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
     height: "100%",
   } : inline ? {
     width: "100%",
-    background: "rgba(18,16,30,.9)",
-    border: "1px solid #2B2745",
+    background: "var(--panel-strong)",
+    border: "1px solid var(--line)",
     borderRadius: 10,
     backdropFilter: "blur(12px)",
     display: "flex",
@@ -111,8 +111,8 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
     top: 76,
     bottom: 20,
     width: 380,
-    background: "rgba(18,16,30,.9)",
-    border: "1px solid #2B2745",
+    background: "var(--panel-strong)",
+    border: "1px solid var(--line)",
     borderRadius: 10,
     backdropFilter: "blur(12px)",
     display: "flex",
@@ -129,8 +129,8 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
         aria-label="Messages panel (drag to expand)"
         style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 0", gap: 14, cursor: "ew-resize", userSelect: "none" }}
       >
-        <span aria-hidden="true" style={{ font: "400 10px 'Space Mono', monospace", color: "#EDEBFA" }}>{messages.length}</span>
-        <span aria-hidden="true" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", font: "400 10px 'Space Mono', monospace", letterSpacing: ".12em", color: "#9A93B8" }}>
+        <span aria-hidden="true" style={{ font: "400 10px 'Space Mono', monospace", color: "var(--text)" }}>{messages.length}</span>
+        <span aria-hidden="true" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", font: "400 10px 'Space Mono', monospace", letterSpacing: ".12em", color: "var(--text-3)" }}>
           MESSAGES
         </span>
       </div>
@@ -143,20 +143,20 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
     return (
       <div style={containerStyle}>
         {/* Breadcrumb */}
-        <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
           <button
             onClick={() => { setThreadRootId(null); setHighlightId(null); }}
             aria-label="Back to messages"
-            style={{ background: "none", border: "1px solid #2B2745", borderRadius: 5, color: "#9A93B8", font: "400 10px 'Space Mono', monospace", padding: "4px 8px", cursor: "pointer", flexShrink: 0 }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#2B2745"; (e.currentTarget as HTMLButtonElement).style.color = "#9A93B8"; }}
+            style={{ background: "none", border: "1px solid var(--line)", borderRadius: 5, color: "var(--text-3)", font: "400 10px 'Space Mono', monospace", padding: "4px 8px", cursor: "pointer", flexShrink: 0 }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--line)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-3)"; }}
           >
             ← BACK
           </button>
-          <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {threadMessages.length > 1 ? "Thread" : "Message"} · @{root?.channel ?? ""}
           </span>
-          <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8", flexShrink: 0, marginLeft: "auto" }}>
+          <span style={{ font: "400 10px 'Space Mono', monospace", color: "var(--text-3)", flexShrink: 0, marginLeft: "auto" }}>
             {threadMessages.length} MSGS
           </span>
         </div>
@@ -183,8 +183,8 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
   return (
     <div style={containerStyle}>
       {/* Header */}
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA" }}>
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "var(--text)" }}>
           Messages{cityFilter ? ` · ${cityFilter}` : regionFilter ? ` · ${regionFilter}` : ""}
         </span>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -196,29 +196,29 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
               CLEAR ✕
             </span>
           )}
-          <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>
+          <span style={{ font: "400 10px 'Space Mono', monospace", color: "var(--text-3)" }}>
             {feedMessages.length}
           </span>
         </div>
       </div>
 
       {/* Filter chips */}
-      <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,.05)", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border-faint)", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
         <button
           onClick={() => setSortOrder((s) => s === "newest" ? "oldest" : "newest")}
           aria-label={sortOrder === "newest" ? "Sort oldest first" : "Sort newest first"}
           style={{
             font: "400 10px 'Space Mono', monospace",
             letterSpacing: ".06em",
-            color: "#9A93B8",
+            color: "var(--text-3)",
             background: "transparent",
-            border: "1px solid #2B2745",
+            border: "1px solid var(--line)",
             borderRadius: 5,
             padding: "6px 9px",
             cursor: "pointer",
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#2B2745"; (e.currentTarget as HTMLButtonElement).style.color = "#9A93B8"; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--line)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-3)"; }}
         >
           {sortOrder === "newest" ? "↓ NEWEST FIRST" : "↑ OLDEST FIRST"}
         </button>
@@ -239,7 +239,7 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
             userSelect: "none",
             opacity: threadsOnly ? 1 : 0.55,
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--hover)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
         >
           <span aria-hidden="true" style={{
@@ -247,16 +247,16 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
             height: 16,
             flexShrink: 0,
             borderRadius: 4,
-            border: `1px solid ${threadsOnly ? "#8B7CF6" : "#3A3555"}`,
-            background: threadsOnly ? "#8B7CF6" : "transparent",
+            border: `1px solid ${threadsOnly ? "var(--accent)" : "var(--line-strong)"}`,
+            background: threadsOnly ? "var(--accent)" : "transparent",
             display: "grid",
             placeItems: "center",
-            color: "#0A0912",
+            color: "var(--on-accent)",
             font: "700 11px/1 'Space Mono', monospace",
           }}>
             {threadsOnly ? "✓" : ""}
           </span>
-          <span style={{ font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "#EDEBFA" }}>
+          <span style={{ font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "var(--text)" }}>
             THREADS ONLY
           </span>
         </div>
@@ -265,7 +265,7 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
       {/* List */}
       <div className="feed-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
         {feedMessages.length === 0 ? (
-          <div style={{ padding: "24px 16px", font: "400 12px 'Instrument Sans', sans-serif", color: "#9A93B8", textAlign: "center" }}>
+          <div style={{ padding: "24px 16px", font: "400 12px 'Instrument Sans', sans-serif", color: "var(--text-3)", textAlign: "center" }}>
             No messages match the current filters.
           </div>
         ) : (
@@ -306,18 +306,18 @@ function MessageCard({ message: m, isReply, hasReplies, onViewThread, highlighte
       display: "flex",
       flexDirection: "column",
       gap: 8,
-      borderLeft: `3px solid ${primaryCat?.color ?? "#3A3555"}`,
+      borderLeft: `3px solid ${primaryCat?.color ?? "var(--line-strong)"}`,
       margin: isReply ? "10px 8px 10px 24px" : "10px 8px",
-      background: highlighted ? "rgba(139,124,246,.12)" : "rgba(255,255,255,.03)",
-      outline: highlighted ? "1px solid rgba(139,124,246,.6)" : "none",
+      background: highlighted ? "var(--accent-tint)" : "var(--hover)",
+      outline: highlighted ? "1px solid var(--accent-outline)" : "none",
       borderRadius: 6,
       transition: "background .3s, outline-color .3s",
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", font: "400 10px 'Space Mono', monospace", color: "var(--text-3)" }}>
         <span>@{m.channel}</span>
         <span>{formatTime(m.timestamp)}</span>
       </div>
-      <div style={{ font: "400 13px/1.5 'Instrument Sans', sans-serif", color: "#EDEBFA" }}>
+      <div style={{ font: "400 13px/1.5 'Instrument Sans', sans-serif", color: "var(--text)" }}>
         {m.text_translated || m.text_original || ""}
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
@@ -331,14 +331,14 @@ function MessageCard({ message: m, isReply, hasReplies, onViewThread, highlighte
         })}
         {m.city && (
           <>
-            <span style={{ color: "#2B2745" }}>·</span>
-            <span style={{ font: "400 11px 'Instrument Sans', sans-serif", color: "#C9C4E4" }}>{m.city}</span>
+            <span style={{ color: "var(--line)" }}>·</span>
+            <span style={{ font: "400 11px 'Instrument Sans', sans-serif", color: "var(--text-2)" }}>{m.city}</span>
           </>
         )}
         {m.lang && (
           <>
-            <span style={{ color: "#2B2745" }}>·</span>
-            <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>{m.lang.toUpperCase()}</span>
+            <span style={{ color: "var(--line)" }}>·</span>
+            <span style={{ font: "400 10px 'Space Mono', monospace", color: "var(--text-3)" }}>{m.lang.toUpperCase()}</span>
           </>
         )}
         {showThreadBtn && (
@@ -347,15 +347,15 @@ function MessageCard({ message: m, isReply, hasReplies, onViewThread, highlighte
             style={{
               marginLeft: "auto",
               font: "400 10px 'Space Mono', monospace",
-              color: "#8B7CF6",
+              color: "var(--accent)",
               background: "none",
               border: "none",
               padding: 0,
               cursor: "pointer",
               flexShrink: 0,
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8B7CF6"; }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--accent)"; }}
           >
             view in thread →
           </button>

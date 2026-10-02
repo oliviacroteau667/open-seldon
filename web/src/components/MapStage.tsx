@@ -7,10 +7,12 @@ import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { FeatureCollection, Feature, Polygon, MultiPolygon, GeoJsonProperties } from "geojson";
 import type { Message, CityCluster } from "@/types";
 import { buildCityClusters } from "@/types";
+import { useTheme } from "./ThemeProvider";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-// CARTO dark matter — free, no API key required
-const BASEMAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+// CARTO basemaps — free, no API key required
+const BASEMAP_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+const BASEMAP_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
 // World country boundaries — Natural Earth 110m (low-res, small file, no API key)
 const WORLD_GEOJSON_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
@@ -174,6 +176,7 @@ function alphaForCount(count: number, max: number): number {
 
 export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, rightInset = 0, highlightCities, highlightRegions, flyTo }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isLight = useTheme().resolved === "light";
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
   const [worldGeojson, setWorldGeojson] = useState<FeatureCollection | null>(null);
 
@@ -308,7 +311,8 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           },
           getLineColor: (f: Feature) => {
             const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
-            return highlightedCountries.has(name) ? [237, 235, 250, 220] : [80, 70, 100, 50];
+            if (highlightedCountries.has(name)) return isLight ? [22, 18, 43, 200] : [237, 235, 250, 220];
+            return isLight ? [120, 110, 150, 70] : [80, 70, 100, 50];
           },
           getLineWidth: (f: Feature) => {
             const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
@@ -317,7 +321,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           lineWidthUnits: "pixels",
           updateTriggers: {
             getFillColor: [countryCounts, countryMax, selectedRegion, highlightedCountries],
-            getLineColor: highlightedCountries,
+            getLineColor: [highlightedCountries, isLight],
             getLineWidth: highlightedCountries,
           },
           transitions: { getFillColor: 300 },
@@ -392,20 +396,20 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         getPosition: (d) => [d.lon, d.lat, 0],
         getText: (d) => `${d.city.toUpperCase()}\n${d.count} msgs`,
         getSize: 11,
-        getColor: [237, 235, 250, 200],
+        getColor: isLight ? [22, 18, 43, 220] : [237, 235, 250, 200],
         fontFamily: "'Space Mono', monospace",
         getTextAnchor: "start",
         getAlignmentBaseline: "center",
         getPixelOffset: [10, -10],
-        updateTriggers: { getText: cityClusters, data: [cityClusters, zoom] },
+        updateTriggers: { getText: cityClusters, data: [cityClusters, zoom], getColor: isLight },
       })
     );
 
     return out;
-  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom, selectedRegion, selectedCity, highlightCities, highlightRegions, highlightedCountries]);
+  }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom, selectedRegion, selectedCity, highlightCities, highlightRegions, highlightedCountries, isLight]);
 
-  const activeStyle = { color: "#EDEBFA", border: "1px solid #8B7CF6" };
-  const inactiveStyle = { color: "#9A93B8", border: "1px solid #2B2745" };
+  const activeStyle = { color: "var(--text)", border: "1px solid var(--accent)" };
+  const inactiveStyle = { color: "var(--text-3)", border: "1px solid var(--line)" };
 
   return (
     <div ref={containerRef} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} role="application" aria-label="Message map">
@@ -436,7 +440,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         }}
       >
         <Map
-          mapStyle={BASEMAP_STYLE}
+          mapStyle={isLight ? BASEMAP_LIGHT : BASEMAP_DARK}
           style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
           attributionControl={false}
         />
@@ -444,7 +448,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
       {/* Layer toggles — pointer-events only on these pills */}
       <div style={{ position: "absolute", left: sidebarWidth + 20, top: 76, display: "flex", gap: 6, zIndex: 5, pointerEvents: "none", transition: "left .2s" }}>
-        <span aria-hidden="true" style={{ pointerEvents: "none", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "#EDEBFA", background: "rgba(18,16,30,.68)", border: "1px solid #8B7CF6", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(20px)" }}>
+        <span aria-hidden="true" style={{ pointerEvents: "none", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "var(--text)", background: "var(--panel)", border: "1px solid var(--accent)", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(20px)" }}>
           POINTS
         </span>
         <button
@@ -452,7 +456,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleRegions(); } }}
           aria-pressed={showRegions}
           aria-label="Toggle regions layer"
-          style={{ pointerEvents: "auto", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", background: "rgba(18,16,30,.68)", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(20px)", cursor: "pointer", ...(showRegions ? activeStyle : inactiveStyle) }}
+          style={{ pointerEvents: "auto", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", background: "var(--panel)", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(20px)", cursor: "pointer", ...(showRegions ? activeStyle : inactiveStyle) }}
         >
           REGIONS
         </button>
@@ -460,7 +464,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
       {/* Legend */}
       {showRegions && (
-        <div aria-label={`Legend: messages per country, max ${countryMaxDisplay}`} style={{ position: "absolute", left: sidebarWidth + 20, top: 114, zIndex: 5, transition: "left .2s", background: "rgba(18,16,30,.68)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 6, padding: "10px 12px", backdropFilter: "blur(20px)", font: "400 10px 'Space Mono', monospace", color: "#9A93B8", letterSpacing: ".04em", display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none" }}>
+        <div aria-label={`Legend: messages per country, max ${countryMaxDisplay}`} style={{ position: "absolute", left: sidebarWidth + 20, top: 114, zIndex: 5, transition: "left .2s", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 6, padding: "10px 12px", backdropFilter: "blur(20px)", font: "400 10px 'Space Mono', monospace", color: "var(--text-3)", letterSpacing: ".04em", display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none" }}>
           <span>MSGS / REGION</span>
           <div style={{ display: "flex", height: 8, width: 120, borderRadius: 2, overflow: "hidden" }}>
             {[0.08, 0.22, 0.38, 0.56, 0.75].map((a, i) => (

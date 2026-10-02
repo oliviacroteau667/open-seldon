@@ -12,12 +12,12 @@ interface Props {
 }
 
 function trendLabel(cur: number, prev: number): { text: string; color: string } {
-  if (prev === 0 && cur === 0) return { text: "—", color: "#9A93B8" };
-  if (prev === 0) return { text: "▲ new", color: "#64B837" };
+  if (prev === 0 && cur === 0) return { text: "—", color: "var(--text-3)" };
+  if (prev === 0) return { text: "▲ new", color: "var(--lime)" };
   const pct = Math.round(((cur - prev) / prev) * 100);
-  if (pct > 5) return { text: `▲${pct}%`, color: "#64B837" };
+  if (pct > 5) return { text: `▲${pct}%`, color: "var(--lime)" };
   if (pct < -5) return { text: `▼${Math.abs(pct)}%`, color: "#E8553E" };
-  return { text: "—", color: "#9A93B8" };
+  return { text: "—", color: "var(--text-3)" };
 }
 
 export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, labelCount, total, categoryFilter, onCategoryFilter }: Props) {
@@ -34,8 +34,8 @@ export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, 
       flex: "1 1 500px",
       maxWidth: 500,
       minWidth: 320,
-      background: "rgba(18,16,30,.68)",
-      border: "1px solid rgba(255,255,255,.07)",
+      background: "var(--panel)",
+      border: "1px solid var(--border)",
       borderRadius: 10,
       padding: "16px 18px",
       backdropFilter: "blur(20px)",
@@ -45,10 +45,10 @@ export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, 
     }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA" }}>
+        <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "var(--text)" }}>
           Needs by category
         </span>
-        <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>
+        <span style={{ font: "400 10px 'Space Mono', monospace", color: "var(--text-3)" }}>
           {labelCount} LABELS · {total} MSGS
         </span>
       </div>
@@ -87,7 +87,7 @@ export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, 
         gridTemplateColumns: "1fr 1fr",
         gap: "6px 20px",
         font: "400 12px 'Instrument Sans', sans-serif",
-        color: "#C9C4E4",
+        color: "var(--text-2)",
       }}>
         {rows.map((r) => {
           const isActive = categoryFilter === r.key;
@@ -108,12 +108,12 @@ export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, 
                 padding: "3px 4px",
                 borderRadius: 4,
                 opacity: dimmed ? 0.4 : 1,
-                background: isActive ? "rgba(139,124,246,.12)" : "transparent",
-                outline: isActive ? "1px solid rgba(139,124,246,.4)" : "none",
+                background: isActive ? "var(--accent-tint)" : "transparent",
+                outline: isActive ? "1px solid var(--accent-outline)" : "none",
                 cursor: "pointer",
                 transition: "opacity .2s, background .15s",
               }}
-              onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
+              onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "var(--hover)"; }}
               onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>

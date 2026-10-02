@@ -221,7 +221,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0A0912", color: "#9A93B8", font: "400 11px 'Space Mono', monospace" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg)", color: "var(--text-3)", font: "400 11px 'Space Mono', monospace" }}>
         LOADING DATA…
       </div>
     );
@@ -229,7 +229,7 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0A0912", color: "#E8553E", font: "400 11px 'Space Mono', monospace" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "var(--bg)", color: "#E8553E", font: "400 11px 'Space Mono', monospace" }}>
         ERROR: {error}
       </div>
     );
@@ -237,7 +237,7 @@ export default function Dashboard() {
 
   if (isMobile) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100dvh", background: "#0A0912", overflow: "hidden", userSelect: "none" }}>
+      <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100dvh", background: "var(--bg)", overflow: "hidden", userSelect: "none" }}>
         {/* Compact top bar */}
         <div style={{ padding: "10px 12px", zIndex: 10 }}>
           <DateSlider
@@ -278,7 +278,7 @@ export default function Dashboard() {
   const overlayTransition = anyDragging ? "none" : "left .2s, right .2s";
 
   return (
-    <div style={{ width: "100%", height: "100vh", background: "#0A0912", overflow: "hidden", userSelect: "none", position: "relative" }}>
+    <div style={{ width: "100%", height: "100vh", background: "var(--bg)", overflow: "hidden", userSelect: "none", position: "relative" }}>
       <div style={{ position: "absolute", inset: 0 }}>
         {/* Top bar: always above the map */}
         <div style={{ position: "absolute", left: leftPad, right: 20, top: 16, display: "flex", alignItems: "center", zIndex: 10, pointerEvents: "none", transition: overlayTransition }}>
@@ -349,8 +349,8 @@ export default function Dashboard() {
           {/* Messages panel */}
           <div style={{
             width: feed.width,
-            borderLeft: "1px solid rgba(255,255,255,.07)",
-            background: "rgba(18,16,30,.68)",
+            borderLeft: "1px solid var(--border)",
+            background: "var(--panel)",
             backdropFilter: "blur(20px)",
             display: "flex",
             flexDirection: "row",
@@ -361,7 +361,7 @@ export default function Dashboard() {
               onMouseDown={feed.startDrag}
               aria-hidden="true"
               style={{ width: 6, flexShrink: 0, cursor: "ew-resize", zIndex: 5 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--accent-tint-strong)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             />
             <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
@@ -387,8 +387,8 @@ export default function Dashboard() {
           {/* Seldon panel */}
           <div style={{
             width: chat.width,
-            borderLeft: "1px solid rgba(255,255,255,.07)",
-            background: "rgba(18,16,30,.68)",
+            borderLeft: "1px solid var(--border)",
+            background: "var(--panel)",
             backdropFilter: "blur(20px)",
             display: "flex",
             flexDirection: "row",
@@ -399,7 +399,7 @@ export default function Dashboard() {
               onMouseDown={chat.startDrag}
               aria-hidden="true"
               style={{ width: 6, flexShrink: 0, cursor: "ew-resize", zIndex: 5 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--accent-tint-strong)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             />
             <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>

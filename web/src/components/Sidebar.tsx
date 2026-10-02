@@ -1,5 +1,13 @@
 "use client";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useTheme, type ThemeMode } from "./ThemeProvider";
+
+const THEME_MODES: { key: ThemeMode; label: string }[] = [
+  { key: "light", label: "Light" },
+  { key: "dark", label: "Dark" },
+  { key: "auto", label: "Auto" },
+];
 
 interface Props {
   width: number;
@@ -28,6 +36,30 @@ function activateOnEnterSpace(fn: () => void) {
 
 export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHandleMouseDown, channels, channelsOn, onToggleChannel, onToggleAll, channelCounts }: Props) {
   const allOn = channels.every((c) => channelsOn[c] !== false);
+  const { mode, resolved, setMode } = useTheme();
+  const brandSuffix = resolved === "light" ? "light" : "dark";
+
+  // Settings popover (portalled: the nav's backdrop-filter would otherwise clip a fixed child)
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [popPos, setPopPos] = useState({ left: 0, bottom: 0 });
+  const settingsRef = useRef<HTMLDivElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const toggleSettings = () => {
+    const r = settingsRef.current?.getBoundingClientRect();
+    if (r) setPopPos({ left: isCollapsed ? r.right + 10 : r.left, bottom: window.innerHeight - r.bottom });
+    setSettingsOpen((o) => !o);
+  };
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!popRef.current?.contains(t) && !settingsRef.current?.contains(t)) setSettingsOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSettingsOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); window.removeEventListener("keydown", onKey); };
+  }, [settingsOpen]);
 
   return (
     <nav
@@ -35,9 +67,9 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
       style={{
         width,
         flex: "none",
-        background: "rgba(18,16,30,.68)",
+        background: "var(--panel)",
         backdropFilter: "blur(20px)",
-        borderRight: "1px solid rgba(255,255,255,.07)",
+        borderRight: "1px solid var(--border)",
         display: "flex",
         flexDirection: "column",
         padding: "14px 10px",
@@ -53,10 +85,10 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
       <div style={{ display: "flex", alignItems: "center", padding: isCollapsed ? "4px 0 16px" : "4px 6px 18px", justifyContent: isCollapsed ? "center" : "flex-start", whiteSpace: "nowrap" }}>
         {isCollapsed ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/brand/mark-dark.svg" alt="Open Seldon" width={28} height={28} style={{ display: "block" }} />
+          <img src={`/brand/mark-${brandSuffix}.svg`} alt="Open Seldon" width={28} height={28} style={{ display: "block" }} />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/brand/logo-primary-dark.svg" alt="Open Seldon" height={28} style={{ display: "block", height: 28, width: "auto" }} />
+          <img src={`/brand/logo-primary-${brandSuffix}.svg`} alt="Open Seldon" height={28} style={{ display: "block", height: 28, width: "auto" }} />
         )}
       </div>
 
@@ -75,12 +107,12 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
             gap: 10,
             padding: "8px 8px",
             borderRadius: 6,
-            background: p.active ? "rgba(139,124,246,.14)" : "transparent",
-            color: p.active ? "#EDEBFA" : "#9A93B8",
+            background: p.active ? "var(--accent-tint)" : "transparent",
+            color: p.active ? "var(--text)" : "var(--text-3)",
             cursor: "pointer",
             whiteSpace: "nowrap",
           }}
-          onMouseEnter={(e) => { if (!p.active) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
+          onMouseEnter={(e) => { if (!p.active) (e.currentTarget as HTMLDivElement).style.background = "var(--hover)"; }}
           onMouseLeave={(e) => { if (!p.active) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
         >
           <span aria-hidden="true" style={{ width: 20, flexShrink: 0, textAlign: "center", font: "700 10px 'Space Mono', monospace", letterSpacing: ".04em" }}>
@@ -92,17 +124,17 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
       ))}
 
       {/* Divider */}
-      <div role="separator" style={{ height: 1, background: "rgba(255,255,255,.07)", margin: "12px 6px" }} />
+      <div role="separator" style={{ height: 1, background: "var(--border)", margin: "12px 6px" }} />
 
       {/* Channels header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 8px 8px", whiteSpace: "nowrap" }}>
-        {!isCollapsed && <span id="channels-label" style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8", letterSpacing: ".1em" }}>CHANNELS</span>}
+        {!isCollapsed && <span id="channels-label" style={{ font: "400 10px 'Space Mono', monospace", color: "var(--text-3)", letterSpacing: ".1em" }}>CHANNELS</span>}
         {!isCollapsed && (
           <button
             onClick={onToggleAll}
             onKeyDown={activateOnEnterSpace(onToggleAll)}
             aria-label={allOn ? "Deselect all channels" : "Select all channels"}
-            style={{ font: "400 10px 'Space Mono', monospace", color: "#8B7CF6", cursor: "pointer", background: "none", border: "none", padding: 0 }}
+            style={{ font: "400 10px 'Space Mono', monospace", color: "var(--accent)", cursor: "pointer", background: "none", border: "none", padding: 0 }}
           >
             {allOn ? "none" : "all"}
           </button>
@@ -132,7 +164,7 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
                 whiteSpace: "nowrap",
                 opacity: on ? 1 : 0.55,
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--hover)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             >
               <span aria-hidden="true" style={{
@@ -140,11 +172,11 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
                 height: 16,
                 flexShrink: 0,
                 borderRadius: 4,
-                border: `1px solid ${on ? "#8B7CF6" : "#3A3555"}`,
-                background: on ? "#8B7CF6" : "transparent",
+                border: `1px solid ${on ? "var(--accent)" : "var(--line-strong)"}`,
+                background: on ? "var(--accent)" : "transparent",
                 display: "grid",
                 placeItems: "center",
-                color: "#0A0912",
+                color: "var(--on-accent)",
                 font: "700 11px/1 'Space Mono', monospace",
                 margin: "0 2px",
               }}>
@@ -152,10 +184,10 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
               </span>
               {!isCollapsed && (
                 <>
-                  <span style={{ font: "400 12px 'Instrument Sans', sans-serif", color: "#C9C4E4", flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ font: "400 12px 'Instrument Sans', sans-serif", color: "var(--text-2)", flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
                     {ch}
                   </span>
-                  <span aria-hidden="true" style={{ font: "400 11px 'Space Mono', monospace", color: "#9A93B8" }}>
+                  <span aria-hidden="true" style={{ font: "400 11px 'Space Mono', monospace", color: "var(--text-3)" }}>
                     {channelCounts[ch] ?? 0}
                   </span>
                 </>
@@ -169,36 +201,100 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
 
       {/* Settings */}
       <div
+        ref={settingsRef}
         role="button"
         tabIndex={0}
         aria-label="Settings"
-        onKeyDown={activateOnEnterSpace(() => {})}
+        aria-expanded={settingsOpen}
+        aria-haspopup="dialog"
+        onClick={toggleSettings}
+        onKeyDown={activateOnEnterSpace(toggleSettings)}
         style={{
           display: "flex",
           alignItems: "center",
           gap: 10,
           padding: 8,
           borderRadius: 6,
-          color: "#9A93B8",
+          color: settingsOpen ? "var(--text)" : "var(--text-3)",
           cursor: "pointer",
           whiteSpace: "nowrap",
-          borderTop: "1px solid rgba(255,255,255,.07)",
+          borderTop: "1px solid var(--border)",
           marginTop: 8,
           paddingTop: 14,
         }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.color = "#EDEBFA"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.color = "#9A93B8"; }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.color = "var(--text)"; }}
+        onMouseLeave={(e) => { if (!settingsOpen) (e.currentTarget as HTMLDivElement).style.color = "var(--text-3)"; }}
       >
         <span aria-hidden="true" style={{ width: 20, flexShrink: 0, textAlign: "center", font: "400 13px 'Space Mono', monospace" }}>⚙</span>
         {!isCollapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif" }}>Settings</span>}
       </div>
+
+      {settingsOpen && typeof document !== "undefined" && createPortal(
+        <div
+          ref={popRef}
+          role="dialog"
+          aria-label="Settings"
+          style={{
+            position: "fixed",
+            left: popPos.left,
+            bottom: popPos.bottom,
+            width: 232,
+            zIndex: 60,
+            background: "var(--panel-strong)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            backdropFilter: "blur(20px)",
+            boxShadow: "0 16px 48px rgba(0,0,0,.35)",
+            padding: "14px 14px 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          <span style={{ font: "400 10px 'Space Mono', monospace", letterSpacing: ".1em", color: "var(--text-3)" }}>SETTINGS</span>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <span style={{ font: "500 13px 'Instrument Sans', sans-serif", color: "var(--text)" }}>Theme</span>
+            <span style={{ font: "400 10px 'Space Mono', monospace", color: "var(--text-4)" }}>
+              {mode === "auto" ? `SYSTEM · ${resolved.toUpperCase()}` : mode.toUpperCase()}
+            </span>
+          </div>
+          <div role="radiogroup" aria-label="Theme" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 3, padding: 3, borderRadius: 8, background: "var(--hover)", border: "1px solid var(--line)" }}>
+            {THEME_MODES.map((m) => {
+              const active = mode === m.key;
+              return (
+                <button
+                  key={m.key}
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setMode(m.key)}
+                  style={{
+                    font: "500 11px 'Instrument Sans', sans-serif",
+                    padding: "6px 0",
+                    borderRadius: 6,
+                    border: "none",
+                    cursor: "pointer",
+                    background: active ? "var(--accent)" : "transparent",
+                    color: active ? "var(--on-accent)" : "var(--text-3)",
+                    transition: "background .15s, color .15s",
+                  }}
+                  onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; }}
+                  onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.color = "var(--text-3)"; }}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Right-edge drag handle — drag inward to collapse, outward to expand */}
       <div
         onMouseDown={onHandleMouseDown}
         aria-hidden="true"
         style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: isCollapsed ? 10 : 6, cursor: "ew-resize", zIndex: 5 }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--accent-tint-strong)"; }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
       />
     </nav>

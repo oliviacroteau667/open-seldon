@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { streamChat } from "@/lib/api";
 import { createMark } from "@/lib/brand";
+import { useTheme } from "./ThemeProvider";
 import type { MapHighlight, Message, PlaceRef } from "@/types";
 
 interface ChatMessage {
@@ -95,13 +96,13 @@ function renderInline(text: string, ctx: InlineCtx): React.ReactNode[] {
           key={i++}
           disabled={!place}
           onClick={() => place && ctx.onPlaceClick?.(place)}
-          onMouseEnter={(e) => { if (!place) return; ctx.onPlaceHover?.(place); (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,124,246,.3)"; (e.currentTarget as HTMLButtonElement).style.color = "#FFFFFF"; }}
-          onMouseLeave={(e) => { if (!place) return; ctx.onPlaceHover?.(null); (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,124,246,.12)"; (e.currentTarget as HTMLButtonElement).style.color = "#C9C4E4"; }}
+          onMouseEnter={(e) => { if (!place) return; ctx.onPlaceHover?.(place); (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-tint-strong)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-bright)"; }}
+          onMouseLeave={(e) => { if (!place) return; ctx.onPlaceHover?.(null); (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-tint)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-2)"; }}
           title={place ? `Show ${name} on the map` : `${name} isn't on the map`}
           aria-label={place ? `Show ${name} on the map` : name}
-          style={{ display: "inline-flex", alignItems: "center", gap: 4, height: 18, padding: "0 7px 0 5px", margin: "0 1px", verticalAlign: "text-bottom", borderRadius: 999, border: place ? "1px solid rgba(179,168,255,.45)" : "1px dashed rgba(154,147,184,.4)", background: place ? "rgba(139,124,246,.12)" : "transparent", color: place ? "#C9C4E4" : "#9A93B8", font: `500 11px/1 ${SANS}`, cursor: place ? "pointer" : "default", whiteSpace: "nowrap" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, height: 18, padding: "0 7px 0 5px", margin: "0 1px", verticalAlign: "text-bottom", borderRadius: 999, border: place ? "1px solid var(--accent-outline)" : "1px dashed var(--line-strong)", background: place ? "var(--accent-tint)" : "transparent", color: place ? "var(--text-2)" : "var(--text-3)", font: `500 11px/1 ${SANS}`, cursor: place ? "pointer" : "default", whiteSpace: "nowrap" }}
         >
-          <span aria-hidden="true" style={{ font: `400 9px/1 ${MONO}`, color: place ? "#8B7CF6" : "#5A5478" }}>◎</span>
+          <span aria-hidden="true" style={{ font: `400 9px/1 ${MONO}`, color: place ? "var(--accent)" : "var(--text-4)" }}>◎</span>
           {name}
         </button>
       );
@@ -114,26 +115,26 @@ function renderInline(text: string, ctx: InlineCtx): React.ReactNode[] {
             onClick={() => ctx.onCiteClick?.(id)}
             title={`Open message #${id}`}
             aria-label={`Open cited message ${n}`}
-            style={{ display: "inline-grid", placeItems: "center", minWidth: 16, height: 16, padding: "0 4px", margin: "0 1px", verticalAlign: "text-top", borderRadius: 4, border: "1px solid rgba(139,124,246,.5)", background: "rgba(139,124,246,.14)", color: "#B4A9FF", font: `700 9px/1 ${MONO}`, cursor: "pointer" }}
-            onMouseEnter={(e) => { ctx.onCiteHover?.(id); (e.currentTarget as HTMLButtonElement).style.background = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#0A0912"; }}
-            onMouseLeave={(e) => { ctx.onCiteHover?.(null); (e.currentTarget as HTMLButtonElement).style.background = "rgba(139,124,246,.14)"; (e.currentTarget as HTMLButtonElement).style.color = "#B4A9FF"; }}
+            style={{ display: "inline-grid", placeItems: "center", minWidth: 16, height: 16, padding: "0 4px", margin: "0 1px", verticalAlign: "text-top", borderRadius: 4, border: "1px solid var(--accent-outline)", background: "var(--accent-tint)", color: "var(--accent-soft)", font: `700 9px/1 ${MONO}`, cursor: "pointer" }}
+            onMouseEnter={(e) => { ctx.onCiteHover?.(id); (e.currentTarget as HTMLButtonElement).style.background = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--on-accent)"; }}
+            onMouseLeave={(e) => { ctx.onCiteHover?.(null); (e.currentTarget as HTMLButtonElement).style.background = "var(--accent-tint)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--accent-soft)"; }}
           >
             {n}
           </button>
         );
       }
     } else if (tok.startsWith("**")) {
-      parts.push(<strong key={i++} style={{ color: "#FFFFFF", fontWeight: 600 }}>{tok.slice(2, -2)}</strong>);
+      parts.push(<strong key={i++} style={{ color: "var(--text-bright)", fontWeight: 600 }}>{tok.slice(2, -2)}</strong>);
     } else if (tok.startsWith("`")) {
       parts.push(
-        <code key={i++} style={{ font: `400 12px ${MONO}`, background: "rgba(255,255,255,.06)", padding: "1px 5px", borderRadius: 4 }}>
+        <code key={i++} style={{ font: `400 12px ${MONO}`, background: "var(--hover)", padding: "1px 5px", borderRadius: 4 }}>
           {tok.slice(1, -1)}
         </code>
       );
     } else if (tok.startsWith("[")) {
       const label = tok.slice(1, tok.indexOf("]("));
       parts.push(
-        <a key={i++} href={m[2]} target="_blank" rel="noopener noreferrer" style={{ color: "#8B7CF6", textDecoration: "underline", textUnderlineOffset: 2 }}>
+        <a key={i++} href={m[2]} target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)", textDecoration: "underline", textUnderlineOffset: 2 }}>
           {label}
         </a>
       );
@@ -146,9 +147,9 @@ function renderInline(text: string, ctx: InlineCtx): React.ReactNode[] {
   return parts;
 }
 
-const P_STYLE: React.CSSProperties = { font: `400 13px/1.6 ${SANS}`, color: "#EDEBFA", margin: "0 0 10px" };
+const P_STYLE: React.CSSProperties = { font: `400 13px/1.6 ${SANS}`, color: "var(--text)", margin: "0 0 10px" };
 const LIST_STYLE: React.CSSProperties = { margin: "0 0 10px", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 };
-const LI_STYLE: React.CSSProperties = { font: `400 13px/1.55 ${SANS}`, color: "#EDEBFA" };
+const LI_STYLE: React.CSSProperties = { font: `400 13px/1.55 ${SANS}`, color: "var(--text)" };
 
 function Markdown({ text, ctx: partial }: { text: string; ctx: Omit<InlineCtx, "index"> }) {
   const cite: InlineCtx = { ...partial, index: buildCiteIndex(text) };
@@ -189,7 +190,7 @@ function Markdown({ text, ctx: partial }: { text: string; ctx: Omit<InlineCtx, "
     const heading = /^#{1,6}\s+(.*)/.exec(line);
     if (heading) {
       flushPara(); flushList();
-      blocks.push(<p key={blocks.length} style={{ ...P_STYLE, fontWeight: 600, color: "#FFFFFF" }}>{renderInline(heading[1], cite)}</p>);
+      blocks.push(<p key={blocks.length} style={{ ...P_STYLE, fontWeight: 600, color: "var(--text-bright)" }}>{renderInline(heading[1], cite)}</p>);
       continue;
     }
     flushList();
@@ -207,6 +208,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamingRef = useRef(false);
+  const markSrc = useTheme().resolved === "light" ? "/brand/mark-light.svg" : "/brand/mark-dark.svg";
 
   // Map highlight: hover is transient, pinned sticks until the same place is clicked again or CLEAR
   const [pinned, setPinned] = useState<MapHighlight | null>(null);
@@ -277,8 +279,8 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
         style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", padding: "18px 0", gap: 14, cursor: "ew-resize", userSelect: "none" }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/mark-dark.svg" alt="" aria-hidden="true" width={24} height={24} style={{ display: "block" }} />
-        <span aria-hidden="true" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", font: `400 10px ${MONO}`, letterSpacing: ".12em", color: "#9A93B8" }}>
+        <img src={markSrc} alt="" aria-hidden="true" width={24} height={24} style={{ display: "block" }} />
+        <span aria-hidden="true" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", font: `400 10px ${MONO}`, letterSpacing: ".12em", color: "var(--text-3)" }}>
           SELDON
         </span>
       </div>
@@ -290,8 +292,8 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header — mirrors the Messages panel header */}
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <span style={{ font: `600 13px ${SANS}`, color: "#EDEBFA", whiteSpace: "nowrap" }}>
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <span style={{ font: `600 13px ${SANS}`, color: "var(--text)", whiteSpace: "nowrap" }}>
           Seldon
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -303,7 +305,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
               CLEAR ✕
             </button>
           )}
-          <span style={{ font: `400 10px ${MONO}`, color: "#9A93B8", whiteSpace: "nowrap" }}>
+          <span style={{ font: `400 10px ${MONO}`, color: "var(--text-3)", whiteSpace: "nowrap" }}>
             {contextIds.length} IN VIEW
           </span>
         </div>
@@ -313,17 +315,17 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
       <div ref={bodyRef} className="feed-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "18px 16px 8px", display: "flex", flexDirection: "column", gap: 14 }}>
         {messages.length === 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 8 }}>
-            <p style={{ font: `400 13px/1.6 ${SANS}`, color: "#9A93B8", margin: 0 }}>
-              Ask about the <span style={{ color: "#EDEBFA" }}>{contextIds.length}</span> messages currently in view. Answers are scoped to your active filters.
+            <p style={{ font: `400 13px/1.6 ${SANS}`, color: "var(--text-3)", margin: 0 }}>
+              Ask about the <span style={{ color: "var(--text)" }}>{contextIds.length}</span> messages currently in view. Answers are scoped to your active filters.
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   onClick={() => send(s)}
-                  style={{ font: `400 12px ${SANS}`, color: "#C9C4E4", background: "rgba(255,255,255,.03)", border: "1px solid #2B2745", borderRadius: 999, padding: "6px 12px", cursor: "pointer", textAlign: "left" }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#2B2745"; (e.currentTarget as HTMLButtonElement).style.color = "#C9C4E4"; }}
+                  style={{ font: `400 12px ${SANS}`, color: "var(--text-2)", background: "var(--hover)", border: "1px solid var(--line)", borderRadius: 999, padding: "6px 12px", cursor: "pointer", textAlign: "left" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--accent)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--line)"; (e.currentTarget as HTMLButtonElement).style.color = "var(--text-2)"; }}
                 >
                   {s}
                 </button>
@@ -334,7 +336,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
 
         {messages.map((m, i) =>
           m.role === "user" ? (
-            <div key={i} style={{ alignSelf: "flex-end", maxWidth: "85%", background: "#8B7CF6", color: "#0A0912", font: `400 13px/1.45 ${SANS}`, padding: "8px 12px", borderRadius: "14px 14px 4px 14px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            <div key={i} style={{ alignSelf: "flex-end", maxWidth: "85%", background: "var(--accent)", color: "var(--on-accent)", font: `400 13px/1.45 ${SANS}`, padding: "8px 12px", borderRadius: "14px 14px 4px 14px", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
               {m.text}
             </div>
           ) : (
@@ -350,11 +352,11 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
       </div>
 
       {/* Composer */}
-      <div style={{ padding: "10px 12px 14px", borderTop: "1px solid rgba(255,255,255,.07)" }}>
+      <div style={{ padding: "10px 12px 14px", borderTop: "1px solid var(--border)" }}>
         <div
-          style={{ display: "flex", alignItems: "flex-end", gap: 8, padding: "8px 8px 8px 12px", border: "1px solid #2B2745", borderRadius: 12, background: "rgba(255,255,255,.02)" }}
-          onFocusCapture={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#8B7CF6"; }}
-          onBlurCapture={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#2B2745"; }}
+          style={{ display: "flex", alignItems: "flex-end", gap: 8, padding: "8px 8px 8px 12px", border: "1px solid var(--line)", borderRadius: 12, background: "var(--surface-faint)" }}
+          onFocusCapture={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--accent)"; }}
+          onBlurCapture={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "var(--line)"; }}
         >
           <textarea
             ref={inputRef}
@@ -369,13 +371,13 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
             placeholder="Ask Seldon…"
             disabled={streaming}
             aria-label="Message Seldon"
-            style={{ flex: 1, resize: "none", background: "transparent", border: "none", outline: "none", font: `400 13px/1.5 ${SANS}`, color: "#EDEBFA", maxHeight: 120, padding: "4px 0" }}
+            style={{ flex: 1, resize: "none", background: "transparent", border: "none", outline: "none", font: `400 13px/1.5 ${SANS}`, color: "var(--text)", maxHeight: 120, padding: "4px 0" }}
           />
           <button
             onClick={() => send()}
             disabled={!canSend}
             aria-label="Send"
-            style={{ width: 28, height: 28, flexShrink: 0, borderRadius: "50%", border: "none", display: "grid", placeItems: "center", background: canSend ? "#8B7CF6" : "rgba(255,255,255,.06)", color: canSend ? "#0A0912" : "#5A5478", font: `700 14px/1 ${MONO}`, cursor: canSend ? "pointer" : "default", transition: "background .15s" }}
+            style={{ width: 28, height: 28, flexShrink: 0, borderRadius: "50%", border: "none", display: "grid", placeItems: "center", background: canSend ? "var(--accent)" : "var(--hover)", color: canSend ? "var(--on-accent)" : "var(--text-4)", font: `700 14px/1 ${MONO}`, cursor: canSend ? "pointer" : "default", transition: "background .15s" }}
           >
             ↑
           </button>

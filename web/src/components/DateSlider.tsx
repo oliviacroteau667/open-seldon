@@ -62,13 +62,13 @@ export default function DateSlider({ dayCounts, range, onRangeChange, days, tota
       alignItems: "center",
       gap: 14,
       padding: "0 16px",
-      background: "rgba(18,16,30,.68)",
-      border: "1px solid rgba(255,255,255,.07)",
+      background: "var(--panel)",
+      border: "1px solid var(--border)",
       borderRadius: 8,
       backdropFilter: "blur(20px)",
     }}>
       {/* Start label */}
-      <span style={{ font: "400 11px 'Space Mono', monospace", color: "#9A93B8", whiteSpace: "nowrap", width: 52 }}>
+      <span style={{ font: "400 11px 'Space Mono', monospace", color: "var(--text-3)", whiteSpace: "nowrap", width: 52 }}>
         {dayLabel(startIdx)}
       </span>
 
@@ -86,14 +86,14 @@ export default function DateSlider({ dayCounts, range, onRangeChange, days, tota
               onClick={() => moveHandle(Math.abs(i - startIdx) <= Math.abs(i - endIdx) ? "start" : "end", i)}
               title={`${dayLabel(i)} · ${count} msgs`}
               style={{ flex: 1, height: "100%", display: "flex", alignItems: "flex-end", cursor: "pointer", borderRadius: 2 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.05)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--border-faint)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             >
               <div style={{
                 width: "100%",
                 height: `${h}%`,
                 minHeight: 2,
-                background: inR ? "#B3A8FF" : "#3A3555",
+                background: inR ? "var(--accent-soft)" : "var(--line-strong)",
                 borderRadius: "1px 1px 0 0",
                 transition: "background .15s",
               }} />
@@ -102,7 +102,7 @@ export default function DateSlider({ dayCounts, range, onRangeChange, days, tota
         })}
 
         {/* Baseline */}
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: 2, background: "#2B2745" }} />
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: -1, height: 2, background: "var(--line)" }} />
 
         {/* Selected span */}
         <div style={{
@@ -111,7 +111,7 @@ export default function DateSlider({ dayCounts, range, onRangeChange, days, tota
           right: `${rangeRight}%`,
           bottom: -1,
           height: 2,
-          background: "#64B837",
+          background: "var(--lime)",
         }} />
 
         {/* Start handle */}
@@ -125,10 +125,10 @@ export default function DateSlider({ dayCounts, range, onRangeChange, days, tota
             height: 14,
             marginLeft: -7,
             borderRadius: "50%",
-            background: "#0A0912",
-            border: "2px solid #EDEBFA",
+            background: "var(--bg)",
+            border: "2px solid var(--text)",
             cursor: "ew-resize",
-            boxShadow: "0 0 0 3px rgba(100,184,55,.35)",
+            boxShadow: "0 0 0 3px var(--lime-glow)",
           }}
         />
 
@@ -143,24 +143,24 @@ export default function DateSlider({ dayCounts, range, onRangeChange, days, tota
             height: 14,
             marginRight: -7,
             borderRadius: "50%",
-            background: "#0A0912",
-            border: "2px solid #EDEBFA",
+            background: "var(--bg)",
+            border: "2px solid var(--text)",
             cursor: "ew-resize",
-            boxShadow: "0 0 0 3px rgba(100,184,55,.35)",
+            boxShadow: "0 0 0 3px var(--lime-glow)",
           }}
         />
       </div>
 
       {/* End label */}
-      <span style={{ font: "400 11px 'Space Mono', monospace", color: "#9A93B8", whiteSpace: "nowrap", width: 52, textAlign: "right" }}>
+      <span style={{ font: "400 11px 'Space Mono', monospace", color: "var(--text-3)", whiteSpace: "nowrap", width: 52, textAlign: "right" }}>
         {dayLabel(endIdx)}
       </span>
 
-      <span style={{ width: 1, height: 20, background: "#2B2745" }} />
+      <span style={{ width: 1, height: 20, background: "var(--line)" }} />
 
-      <span style={{ font: "700 11px 'Space Mono', monospace", color: "#8B7CF6", whiteSpace: "nowrap" }}>
+      <span style={{ font: "700 11px 'Space Mono', monospace", color: "var(--accent)", whiteSpace: "nowrap" }}>
         {totalInRange}{" "}
-        <span style={{ fontWeight: 400, color: "#9A93B8" }}>MSGS</span>
+        <span style={{ fontWeight: 400, color: "var(--text-3)" }}>MSGS</span>
       </span>
     </div>
   );
