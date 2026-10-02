@@ -13,7 +13,7 @@ interface Props {
 }
 
 const PAGES = [
-  { glyph: "MAP", label: "Map", active: true, dot: false },
+  { glyph: "DSH", label: "Dashboard", active: true, dot: false },
   { glyph: "MSG", label: "Messages", active: false, dot: false },
   { glyph: "RPT", label: "Reports", active: false, dot: false },
   { glyph: "ALR", label: "Alerts", active: false, dot: true },

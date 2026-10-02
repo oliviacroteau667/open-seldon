@@ -54,17 +54,27 @@ export default function Dashboard() {
   const [range, setRange] = useState<[number, number] | null>(null);
   const [showRegions, setShowRegions] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [focusMessageId, setFocusMessageId] = useState<number | null>(null);
 
   const [panelWidth, setPanelWidth] = useState(360);
+  const [chatWidth, setChatWidth] = useState(360);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  // Auto-collapse the analyst panel on small viewports, like the sidebar
+  useEffect(() => {
+    setChatCollapsed(isSmall);
+  }, [isSmall]);
   const isResizing = useRef(false);
 
-  function startPanelDrag(e: React.MouseEvent) {
+  const CHAT_RAIL = 44;
+  const chatMax = Math.max(300, Math.floor(width / 3));
+  const chatW = chatCollapsed ? CHAT_RAIL : Math.min(chatWidth, chatMax);
+
+  function dragWidth(e: React.MouseEvent, start: number, min: number, max: number, set: (w: number) => void) {
     e.preventDefault();
     isResizing.current = true;
     const startX = e.clientX;
-    const startWidth = panelWidth;
     const onMove = (ev: MouseEvent) => {
-      setPanelWidth(Math.max(260, Math.min(640, startWidth + startX - ev.clientX)));
+      set(Math.max(min, Math.min(max, start + startX - ev.clientX)));
     };
     const onUp = () => {
       isResizing.current = false;
@@ -74,6 +84,9 @@ export default function Dashboard() {
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }
+
+  const startPanelDrag = (e: React.MouseEvent) => dragWidth(e, panelWidth, 260, 640, setPanelWidth);
+  const startChatDrag = (e: React.MouseEvent) => dragWidth(e, chatW, 300, chatMax, setChatWidth);
 
   useEffect(() => {
     fetchDashboard()
@@ -261,8 +274,8 @@ export default function Dashboard() {
           sidebarWidth={sidebarW}
         />
 
-        {/* Bottom-left overlay: category breakdown + analyst chat */}
-        <div style={{ position: "absolute", left: leftPad, right: 20, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none", transition: "left .2s" }}>
+        {/* Bottom-left overlay: category breakdown */}
+        <div style={{ position: "absolute", left: leftPad, right: panelWidth + chatW + 20, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none", transition: "left .2s" }}>
           <div style={{ pointerEvents: "auto", flex: "1 1 320px", maxWidth: 500, minWidth: 0 }}>
             <CategoryBreakdown
               categoryCounts={categoryCounts}
@@ -273,11 +286,6 @@ export default function Dashboard() {
               onCategoryFilter={setCategoryFilter}
             />
           </div>
-          {!isSmall && (
-            <div style={{ pointerEvents: "auto", flex: "1 1 380px", maxWidth: 380, minWidth: 280 }}>
-              <AnalystChat contextIds={inRange.map((m) => m.id)} />
-            </div>
-          )}
         </div>
 
         {/* Left sidebar: full-height overlay on top of the map */}
@@ -296,48 +304,69 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Right panel: full-height overlay on top of the map */}
-        <div style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: panelWidth,
-          zIndex: 10,
-          borderLeft: "1px solid rgba(255,255,255,.07)",
-          background: "rgba(18,16,30,.68)",
-          backdropFilter: "blur(20px)",
-          display: "flex",
-          flexDirection: "row",
-          overflow: "hidden",
-        }}>
-          {/* Drag handle */}
-          <div
-            onMouseDown={startPanelDrag}
-            style={{
-              width: 6,
-              flexShrink: 0,
-              cursor: "ew-resize",
-              zIndex: 5,
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
-          />
-
-          {/* Panel content */}
-          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <MessageFeed
-              messages={displayedMessages}
-              allMessages={allMessages}
-              categoryFilter={categoryFilter}
-              onCategoryFilter={setCategoryFilter}
-              total={inRange.length}
-              cityFilter={cityFilter}
-              onCityFilter={setCityFilter}
-              regionFilter={regionFilter}
-              onRegionFilter={setRegionFilter}
-              flush
+        {/* Right panels: messages + analyst, full-height overlays on top of the map */}
+        <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, zIndex: 10, display: "flex", flexDirection: "row" }}>
+          {/* Messages panel */}
+          <div style={{
+            width: panelWidth,
+            borderLeft: "1px solid rgba(255,255,255,.07)",
+            background: "rgba(18,16,30,.68)",
+            backdropFilter: "blur(20px)",
+            display: "flex",
+            flexDirection: "row",
+            overflow: "hidden",
+          }}>
+            <div
+              onMouseDown={startPanelDrag}
+              style={{ width: 6, flexShrink: 0, cursor: "ew-resize", zIndex: 5 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             />
+            <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              <MessageFeed
+                messages={displayedMessages}
+                allMessages={allMessages}
+                categoryFilter={categoryFilter}
+                onCategoryFilter={setCategoryFilter}
+                total={inRange.length}
+                cityFilter={cityFilter}
+                onCityFilter={setCityFilter}
+                regionFilter={regionFilter}
+                onRegionFilter={setRegionFilter}
+                focusMessageId={focusMessageId}
+                onFocusConsumed={() => setFocusMessageId(null)}
+                flush
+              />
+            </div>
+          </div>
+
+          {/* Analyst panel */}
+          <div style={{
+            width: chatW,
+            borderLeft: "1px solid rgba(255,255,255,.07)",
+            background: "rgba(18,16,30,.68)",
+            backdropFilter: "blur(20px)",
+            display: "flex",
+            flexDirection: "row",
+            overflow: "hidden",
+            transition: chatCollapsed ? "width .2s" : undefined,
+          }}>
+            {!chatCollapsed && (
+              <div
+                onMouseDown={startChatDrag}
+                style={{ width: 6, flexShrink: 0, cursor: "ew-resize", zIndex: 5 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(139,124,246,.25)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+              />
+            )}
+            <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              <AnalystChat
+                contextIds={inRange.map((m) => m.id)}
+                collapsed={chatCollapsed}
+                onToggleCollapse={() => setChatCollapsed((c) => !c)}
+                onCiteClick={setFocusMessageId}
+              />
+            </div>
           </div>
         </div>
       </div>

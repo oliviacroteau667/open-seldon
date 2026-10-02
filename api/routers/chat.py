@@ -28,8 +28,14 @@ needs, and concerns expressed in the messages.
 Answer questions concisely and factually. Cite specific counts, cities, and examples when
 relevant. If the context doesn't contain enough information, say so clearly.
 
-Format your responses in plain prose — no markdown headers, minimal bullet points.
-Keep answers under 150 words unless the question clearly requires more detail."""
+Format responses with light markdown: short paragraphs, **bold** for key figures and place
+names, and a short bullet list only when listing several distinct items. No headers, no tables.
+Keep answers under 150 words unless the question clearly requires more detail.
+
+Each context message is prefixed with its ID, e.g. [#12345]. Whenever you state a fact drawn
+from specific messages, cite them inline right after the claim using exactly that form, e.g.
+"…queues over 10 hours at Krakovets [#12345]." For several sources write [#12345][#67890].
+Cite only IDs that appear in the context and never invent IDs. Do not add a separate sources list."""
 
 
 def _get_pool():
@@ -71,7 +77,7 @@ async def chat(
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT m.channel_name, m.date, p.translation, p.categories, p.geocoded_locations
+                SELECT m.id, m.channel_name, m.date, p.translation, p.categories, p.geocoded_locations
                 FROM messages m
                 JOIN processed_messages p ON m.id = p.id
                 WHERE m.id = ANY($1)
@@ -85,7 +91,7 @@ async def chat(
             cats = ", ".join(r["categories"] or [])
             date_str = r["date"].strftime("%d %b %H:%M")
             context_lines.append(
-                f"[{r['channel_name']} · {date_str}] ({cats}): {r['translation'] or ''}"
+                f"[#{r['id']}] [{r['channel_name']} · {date_str}] ({cats}): {r['translation'] or ''}"
             )
         context = "\n".join(context_lines) or "No messages in current filter."
     else:

@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { Message } from "@/types";
 import { catKeysForMessage, catForKey } from "@/types";
 
@@ -15,6 +15,8 @@ interface Props {
   onCityFilter?: (city: string | null) => void;
   regionFilter?: string | null;
   onRegionFilter?: (name: string | null) => void;
+  focusMessageId?: number | null; // open this message (bypassing filters) and highlight it
+  onFocusConsumed?: () => void;
 }
 
 function formatTime(iso: string): string {
@@ -34,8 +36,9 @@ function resolveRoot(id: number, byId: Map<number, Message>): number {
   return cur?.id ?? id;
 }
 
-export default function MessageFeed({ messages, allMessages, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
+export default function MessageFeed({ messages, allMessages, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter, focusMessageId, onFocusConsumed }: Props) {
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
+  const [highlightId, setHighlightId] = useState<number | null>(null);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [threadsOnly, setThreadsOnly] = useState(false);
 
@@ -63,6 +66,20 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
   }, [threadRootId, messagePool, byId]);
 
   const openThread = (msgId: number) => setThreadRootId(resolveRoot(msgId, byId));
+
+  useEffect(() => {
+    if (focusMessageId == null) return;
+    if (byId.has(focusMessageId)) {
+      setThreadRootId(resolveRoot(focusMessageId, byId));
+      setHighlightId(focusMessageId);
+    }
+    onFocusConsumed?.();
+  }, [focusMessageId, byId, onFocusConsumed]);
+
+  useEffect(() => {
+    if (highlightId == null) return;
+    document.getElementById(`msg-${highlightId}`)?.scrollIntoView({ block: "center" });
+  }, [highlightId, threadRootId]);
 
   const feedMessages = useMemo(() => {
     let list = threadsOnly ? messages.filter((m) => hasReplies.has(m.id)) : messages;
@@ -110,7 +127,7 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
         {/* Breadcrumb */}
         <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", alignItems: "center", gap: 10 }}>
           <button
-            onClick={() => setThreadRootId(null)}
+            onClick={() => { setThreadRootId(null); setHighlightId(null); }}
             aria-label="Back to messages"
             style={{ background: "none", border: "1px solid #2B2745", borderRadius: 5, color: "#9A93B8", font: "400 10px 'Space Mono', monospace", padding: "4px 8px", cursor: "pointer", flexShrink: 0 }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
@@ -119,7 +136,7 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
             ← BACK
           </button>
           <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            Thread · @{root?.channel ?? ""}
+            {threadMessages.length > 1 ? "Thread" : "Message"} · @{root?.channel ?? ""}
           </span>
           <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8", flexShrink: 0, marginLeft: "auto" }}>
             {threadMessages.length} MSGS
@@ -136,6 +153,7 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
               isFirst={i === 0}
               hasReplies={hasReplies.has(m.id)}
               onViewThread={openThread}
+              highlighted={m.id === highlightId}
             />
           ))}
         </div>
@@ -170,13 +188,15 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
       <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,.05)", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
         <button
           onClick={() => setSortOrder((s) => s === "newest" ? "oldest" : "newest")}
+          aria-label={sortOrder === "newest" ? "Sort oldest first" : "Sort newest first"}
           style={{
             font: "400 10px 'Space Mono', monospace",
+            letterSpacing: ".06em",
             color: "#9A93B8",
-            background: "rgba(255,255,255,.04)",
+            background: "transparent",
             border: "1px solid #2B2745",
-            borderRadius: 4,
-            padding: "3px 8px",
+            borderRadius: 5,
+            padding: "6px 9px",
             cursor: "pointer",
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
@@ -184,15 +204,44 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
         >
           {sortOrder === "newest" ? "↓ NEWEST FIRST" : "↑ OLDEST FIRST"}
         </button>
-        <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", font: "400 10px 'Space Mono', monospace", color: threadsOnly ? "#8B7CF6" : "#9A93B8", userSelect: "none" }}>
-          <input
-            type="checkbox"
-            checked={threadsOnly}
-            onChange={(e) => setThreadsOnly(e.target.checked)}
-            style={{ accentColor: "#8B7CF6", cursor: "pointer" }}
-          />
-          THREADS ONLY
-        </label>
+        <div
+          role="checkbox"
+          aria-checked={threadsOnly}
+          aria-label="Threads only"
+          tabIndex={0}
+          onClick={() => setThreadsOnly((v) => !v)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setThreadsOnly((v) => !v); } }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "4px 8px",
+            borderRadius: 6,
+            cursor: "pointer",
+            userSelect: "none",
+            opacity: threadsOnly ? 1 : 0.55,
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+        >
+          <span aria-hidden="true" style={{
+            width: 16,
+            height: 16,
+            flexShrink: 0,
+            borderRadius: 4,
+            border: `1px solid ${threadsOnly ? "#8B7CF6" : "#3A3555"}`,
+            background: threadsOnly ? "#8B7CF6" : "transparent",
+            display: "grid",
+            placeItems: "center",
+            color: "#0A0912",
+            font: "700 11px/1 'Space Mono', monospace",
+          }}>
+            {threadsOnly ? "✓" : ""}
+          </span>
+          <span style={{ font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "#EDEBFA" }}>
+            THREADS ONLY
+          </span>
+        </div>
       </div>
 
       {/* List */}
@@ -225,23 +274,26 @@ interface CardProps {
   isFirst: boolean;
   hasReplies: boolean;
   onViewThread: (id: number) => void;
+  highlighted?: boolean;
 }
 
-function MessageCard({ message: m, isReply, hasReplies, onViewThread }: CardProps) {
+function MessageCard({ message: m, isReply, hasReplies, onViewThread, highlighted }: CardProps) {
   const catKeys = catKeysForMessage(m);
   const primaryCat = catKeys.length > 0 ? catForKey(catKeys[0]) : null;
   const showThreadBtn = m.reply_to_id != null || hasReplies;
 
   return (
-    <div style={{
+    <div id={`msg-${m.id}`} style={{
       padding: "12px 16px",
       display: "flex",
       flexDirection: "column",
       gap: 8,
       borderLeft: `3px solid ${primaryCat?.color ?? "#3A3555"}`,
-      margin: isReply ? "4px 8px 4px 24px" : "4px 8px",
-      background: "rgba(255,255,255,.03)",
+      margin: isReply ? "10px 8px 10px 24px" : "10px 8px",
+      background: highlighted ? "rgba(139,124,246,.12)" : "rgba(255,255,255,.03)",
+      outline: highlighted ? "1px solid rgba(139,124,246,.6)" : "none",
       borderRadius: 6,
+      transition: "background .3s, outline-color .3s",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>
         <span>@{m.channel}</span>
