@@ -36,6 +36,8 @@ function resolveRoot(id: number, byId: Map<number, Message>): number {
 
 export default function MessageFeed({ messages, allMessages, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
   const [threadRootId, setThreadRootId] = useState<number | null>(null);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [threadsOnly, setThreadsOnly] = useState(false);
 
   // Index all available messages by id (use allMessages when available so thread view
   // can pull in messages outside the current date/category/city filter).
@@ -61,6 +63,12 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
   }, [threadRootId, messagePool, byId]);
 
   const openThread = (msgId: number) => setThreadRootId(resolveRoot(msgId, byId));
+
+  const feedMessages = useMemo(() => {
+    let list = threadsOnly ? messages.filter((m) => hasReplies.has(m.id)) : messages;
+    if (sortOrder === "oldest") list = [...list].reverse();
+    return list;
+  }, [messages, threadsOnly, sortOrder, hasReplies]);
 
   const containerStyle: React.CSSProperties = flush ? {
     flex: 1,
@@ -153,19 +161,48 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
             </span>
           )}
           <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>
-            {messages.length} · NEWEST FIRST
+            {feedMessages.length}
           </span>
         </div>
       </div>
 
+      {/* Filter chips */}
+      <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,.05)", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={() => setSortOrder((s) => s === "newest" ? "oldest" : "newest")}
+          style={{
+            font: "400 10px 'Space Mono', monospace",
+            color: "#9A93B8",
+            background: "rgba(255,255,255,.04)",
+            border: "1px solid #2B2745",
+            borderRadius: 4,
+            padding: "3px 8px",
+            cursor: "pointer",
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#2B2745"; (e.currentTarget as HTMLButtonElement).style.color = "#9A93B8"; }}
+        >
+          {sortOrder === "newest" ? "↓ NEWEST FIRST" : "↑ OLDEST FIRST"}
+        </button>
+        <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", font: "400 10px 'Space Mono', monospace", color: threadsOnly ? "#8B7CF6" : "#9A93B8", userSelect: "none" }}>
+          <input
+            type="checkbox"
+            checked={threadsOnly}
+            onChange={(e) => setThreadsOnly(e.target.checked)}
+            style={{ accentColor: "#8B7CF6", cursor: "pointer" }}
+          />
+          THREADS ONLY
+        </label>
+      </div>
+
       {/* List */}
       <div className="feed-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
-        {messages.length === 0 ? (
+        {feedMessages.length === 0 ? (
           <div style={{ padding: "24px 16px", font: "400 12px 'Instrument Sans', sans-serif", color: "#9A93B8", textAlign: "center" }}>
-            No messages match the current channels and date range.
+            No messages match the current filters.
           </div>
         ) : (
-          messages.map((m) => (
+          feedMessages.map((m) => (
             <MessageCard
               key={m.id}
               message={m}
