@@ -291,9 +291,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header — mirrors the Messages panel header */}
       <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <span style={{ font: `600 13px ${SANS}`, color: "#EDEBFA", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/mark-dark.svg" alt="" aria-hidden="true" width={22} height={22} style={{ display: "block", flexShrink: 0 }} />
+        <span style={{ font: `600 13px ${SANS}`, color: "#EDEBFA", whiteSpace: "nowrap" }}>
           Seldon
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
