@@ -36,6 +36,7 @@ interface Props {
   onRegionClick?: (name: string | null) => void;
   onCityRegionMap?: (map: Record<string, string>) => void;
   sidebarWidth?: number;
+  rightInset?: number; // width of panels covering the map's right edge
   highlightCities?: Set<string>;
   highlightRegions?: Set<string>;
   flyTo?: { longitude: number; latitude: number; zoom: number; key: number } | null;
@@ -171,7 +172,8 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, highlightCities, highlightRegions, flyTo }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, rightInset = 0, highlightCities, highlightRegions, flyTo }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
   const [worldGeojson, setWorldGeojson] = useState<FeatureCollection | null>(null);
 
@@ -221,14 +223,21 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
   useEffect(() => {
     if (!flyTo) return;
+    // Shift the map centre so the target lands in the middle of the map area that
+    // isn't covered by the sidebar or the right-hand panels.
+    const fullW = containerRef.current?.clientWidth ?? 0;
+    const visibleCenterX = sidebarWidth + (fullW - sidebarWidth - rightInset) / 2;
+    const shiftPx = fullW / 2 - visibleCenterX;
+    const degPerPx = 360 / (512 * Math.pow(2, flyTo.zoom));
     setViewState((v) => ({
       ...v,
-      longitude: flyTo.longitude,
+      longitude: flyTo.longitude + shiftPx * degPerPx,
       latitude: flyTo.latitude,
       zoom: flyTo.zoom,
       transitionDuration: 900,
       transitionInterpolator: new FlyToInterpolator({ speed: 1.6 }),
     }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyTo]);
 
   const countryNameMap = useMemo(
@@ -399,7 +408,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
   const inactiveStyle = { color: "#9A93B8", border: "1px solid #2B2745" };
 
   return (
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} role="application" aria-label="Message map">
+    <div ref={containerRef} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} role="application" aria-label="Message map">
       {/* DeckGL manages its own canvas; Map provides the basemap underneath */}
       <DeckGL
         viewState={viewState}

@@ -57,7 +57,7 @@ export default function Dashboard() {
   const highlightCities = useMemo(() => new Set(mapHighlight?.cities ?? []), [mapHighlight]);
   const highlightRegions = useMemo(() => new Set(mapHighlight?.regions ?? []), [mapHighlight]);
   const flyToPlace = useCallback((p: PlaceRef) => {
-    setFlyTo({ longitude: p.lon, latitude: p.lat, zoom: p.kind === "city" ? 8 : 5, key: Date.now() });
+    setFlyTo({ longitude: p.lon, latitude: p.lat, zoom: p.kind === "city" ? 7 : 5, key: Date.now() });
   }, []);
 
   // Three drag-collapsible panels: sidebar (left), messages + Seldon (right)
@@ -286,6 +286,7 @@ export default function Dashboard() {
           onRegionClick={setRegionFilter}
           onCityRegionMap={setCityToRegion}
           sidebarWidth={sidebarW}
+          rightInset={feed.width + chat.width}
           highlightCities={highlightCities}
           highlightRegions={highlightRegions}
           flyTo={flyTo}
