@@ -202,15 +202,15 @@ export default function AnalystChat({ contextIds, collapsed, onToggleCollapse, o
       <div
         role="button"
         tabIndex={0}
-        aria-label="Expand analyst panel"
+        aria-label="Expand Seldon panel"
         onClick={onToggleCollapse}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleCollapse(); } }}
         style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0", gap: 16, cursor: "pointer" }}
       >
-        <PanelToggle pointRight={false} onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }} ariaLabel="Expand analyst panel" />
+        <PanelToggle pointRight={false} onClick={(e) => { e.stopPropagation(); onToggleCollapse(); }} ariaLabel="Expand Seldon panel" />
         <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#8B7CF6" }} />
         <span aria-hidden="true" style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", font: `400 10px ${MONO}`, letterSpacing: ".12em", color: "#9A93B8" }}>
-          ANALYST
+          SELDON
         </span>
       </div>
     );
@@ -224,7 +224,7 @@ export default function AnalystChat({ contextIds, collapsed, onToggleCollapse, o
       <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
         <span style={{ font: `600 13px ${SANS}`, color: "#EDEBFA", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
           <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "#8B7CF6", boxShadow: streaming ? "0 0 0 4px rgba(139,124,246,.25)" : "none", transition: "box-shadow .2s" }} />
-          Analyst
+          Seldon
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {messages.length > 0 && !streaming && (
@@ -238,7 +238,7 @@ export default function AnalystChat({ contextIds, collapsed, onToggleCollapse, o
           <span style={{ font: `400 10px ${MONO}`, color: "#9A93B8", whiteSpace: "nowrap" }}>
             {contextIds.length} IN VIEW
           </span>
-          <PanelToggle pointRight onClick={onToggleCollapse} ariaLabel="Collapse analyst panel" />
+          <PanelToggle pointRight onClick={onToggleCollapse} ariaLabel="Collapse Seldon panel" />
         </div>
       </div>
 
@@ -275,7 +275,7 @@ export default function AnalystChat({ contextIds, collapsed, onToggleCollapse, o
               {m.text ? (
                 <Markdown text={m.text} onCiteClick={onCiteClick} />
               ) : (
-                <span className="typing-dots" aria-label="Analyst is typing"><i /><i /><i /></span>
+                <span className="typing-dots" aria-label="Seldon is typing"><i /><i /><i /></span>
               )}
             </div>
           )
@@ -299,9 +299,9 @@ export default function AnalystChat({ contextIds, collapsed, onToggleCollapse, o
               e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
             }}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-            placeholder="Ask the analyst…"
+            placeholder="Ask Seldon…"
             disabled={streaming}
-            aria-label="Message the analyst"
+            aria-label="Message Seldon"
             style={{ flex: 1, resize: "none", background: "transparent", border: "none", outline: "none", font: `400 13px/1.5 ${SANS}`, color: "#EDEBFA", maxHeight: 120, padding: "4px 0" }}
           />
           <button
