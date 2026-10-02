@@ -29,6 +29,8 @@ export interface LaunchOptions {
   width?: number;
   minDuration?: number;
   hold?: number;
+  dismiss?: "auto" | "click"; // "click" holds on the wordmark until the arrow is pressed
+  enterLabel?: string;
   onDone?: () => void;
 }
 
@@ -230,19 +232,54 @@ export function launch(o: LaunchOptions = {}): LaunchHandle {
   if (foot && o.footer) foot.textContent = o.footer;
 
   const c = controller("lockup", center, { width, revealed: false });
+
+  // Tagline row: caption + (in click mode) a minimalist arrow with a generous hit area
+  const big = width > 300;
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;align-items:center;gap:6px;opacity:0;transition:opacity .5s,transform .5s;transform:translateY(4px)";
   let cap: HTMLSpanElement | null = null;
   if (o.tagline) {
     cap = document.createElement("span");
     cap.textContent = o.tagline;
-    cap.style.cssText = `font:400 ${width > 300 ? 13 : 11}px 'Space Mono',ui-monospace,monospace;letter-spacing:.15em;color:#9A93B8;opacity:0;white-space:nowrap;transition:opacity .5s,transform .5s;transform:translateY(4px)`;
-    center.appendChild(cap);
+    cap.style.cssText = `font:400 ${big ? 13 : 11}px 'Space Mono',ui-monospace,monospace;letter-spacing:.15em;color:#9A93B8;white-space:nowrap`;
+    row.appendChild(cap);
   }
+  let arrow: HTMLButtonElement | null = null;
+  if (o.dismiss === "click") {
+    arrow = document.createElement("button");
+    arrow.type = "button";
+    arrow.textContent = "›";
+    arrow.setAttribute("aria-label", o.enterLabel ?? "Enter");
+    arrow.style.cssText = `width:48px;height:48px;margin:-12px -12px -12px -4px;display:grid;place-items:center;background:none;border:0;border-radius:24px;color:#EDEBFA;font:300 ${big ? 30 : 24}px/1 'Instrument Sans',system-ui,sans-serif;cursor:pointer;transition:color .2s,transform .2s;padding:0`;
+    arrow.onmouseenter = () => { arrow!.style.color = "#64B837"; arrow!.style.transform = "translateX(3px)"; };
+    arrow.onmouseleave = () => { arrow!.style.color = "#EDEBFA"; arrow!.style.transform = "none"; };
+    row.appendChild(arrow);
+  }
+  if (cap || arrow) center.appendChild(row);
   document.body.appendChild(root);
   c.start();
 
   const t0 = performance.now();
   const minMs = o.minDuration ?? 1800;
   let done = false;
+
+  const dismiss = async () => {
+    root.style.opacity = "0";
+    root.style.pointerEvents = "none";
+    await sleep(650);
+    c.destroy();
+    root.remove();
+    o.onDone?.();
+  };
+
+  const waitForClick = () =>
+    new Promise<void>((res) => {
+      const go = () => { cleanup(); res(); };
+      const onKey = (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+      const cleanup = () => { arrow?.removeEventListener("click", go); window.removeEventListener("keydown", onKey); };
+      arrow?.addEventListener("click", go);
+      window.addEventListener("keydown", onKey);
+    });
 
   return {
     controller: c,
@@ -252,15 +289,13 @@ export function launch(o: LaunchOptions = {}): LaunchHandle {
       await sleep(Math.max(0, minMs - (performance.now() - t0)));
       await c.finish();
       await c.reveal();
-      if (cap) { cap.style.opacity = "1"; cap.style.transform = "none"; }
+      row.style.opacity = "1";
+      row.style.transform = "none";
       if (foot) foot.style.opacity = "1";
       c.pulse();
-      await sleep(o.hold ?? 900);
-      root.style.opacity = "0";
-      await sleep(650);
-      c.destroy();
-      root.remove();
-      o.onDone?.();
+      if (o.dismiss === "click") await waitForClick();
+      else await sleep(o.hold ?? 900);
+      await dismiss();
     },
   };
 }

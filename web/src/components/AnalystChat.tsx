@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { streamChat } from "@/lib/api";
-import { createMark, type BrandController } from "@/lib/brand";
+import { createMark } from "@/lib/brand";
 import type { MapHighlight, Message, PlaceRef } from "@/types";
 
 interface ChatMessage {
@@ -31,6 +31,17 @@ interface InlineCtx {
 
 function highlightForPlace(p: PlaceRef): MapHighlight {
   return p.kind === "city" ? { cities: [p.name], regions: [] } : { cities: [], regions: [p.name] };
+}
+
+// Revolving brand mark shown in place of the reply until the first token arrives
+function ThinkingMark() {
+  const host = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!host.current) return;
+    const mark = createMark(host.current, { width: 28 }).start();
+    return () => mark.destroy();
+  }, []);
+  return <span ref={host} role="img" aria-label="Seldon is thinking" style={{ display: "block", width: 28, height: 28, padding: "4px 0" }} />;
 }
 
 function highlightForMessage(m: Message): MapHighlight {
@@ -197,17 +208,6 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamingRef = useRef(false);
 
-  // Brand mark in the header doubles as the activity indicator (drop → revolve → rise → pulse)
-  const markHost = useRef<HTMLSpanElement>(null);
-  const markRef = useRef<BrandController | null>(null);
-  useEffect(() => {
-    if (collapsed || !markHost.current) return;
-    const mark = createMark(markHost.current, { width: 28 });
-    markRef.current = mark;
-    if (streamingRef.current) mark.start();
-    return () => { mark.destroy(); markRef.current = null; };
-  }, [collapsed]);
-
   // Map highlight: hover is transient, pinned sticks until the same place is clicked again or CLEAR
   const [pinned, setPinned] = useState<MapHighlight | null>(null);
   const [hover, setHover] = useState<MapHighlight | null>(null);
@@ -241,15 +241,6 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
     setStreaming(true);
-    markRef.current?.start();
-    // Hands settle when the first token arrives, pulse while streaming, rest when done
-    let settled: Promise<void> | null = null;
-    const settle = () => {
-      if (settled) return settled;
-      const mark = markRef.current;
-      settled = mark ? mark.finish().then(() => { if (markRef.current === mark) mark.pulse(); }) : Promise.resolve();
-      return settled;
-    };
 
     let assistantIdx = -1;
     setMessages((ms) => {
@@ -267,7 +258,6 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
 
     try {
       for await (const chunk of streamChat(text, contextIds.slice(0, 150))) {
-        settle();
         patchAssistant((prev) => prev + chunk);
       }
     } catch {
@@ -275,7 +265,6 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
     } finally {
       streamingRef.current = false;
       setStreaming(false);
-      settle().then(() => markRef.current?.idle());
     }
   }
 
@@ -302,8 +291,9 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       {/* Header — mirrors the Messages panel header */}
       <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-        <span style={{ font: `600 13px ${SANS}`, color: "#EDEBFA", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
-          <span ref={markHost} aria-hidden="true" style={{ display: "block", width: 28, height: 28, flexShrink: 0 }} />
+        <span style={{ font: `600 13px ${SANS}`, color: "#EDEBFA", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/mark-dark.svg" alt="" aria-hidden="true" width={22} height={22} style={{ display: "block", flexShrink: 0 }} />
           Seldon
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -354,7 +344,7 @@ export default function AnalystChat({ contextIds, collapsed, onRailMouseDown, on
               {m.text ? (
                 <Markdown text={m.text} ctx={inlineCtx} />
               ) : (
-                <span className="typing-dots" aria-label="Seldon is typing"><i /><i /><i /></span>
+                <ThinkingMark />
               )}
             </div>
           )

@@ -52,9 +52,10 @@ export default function Dashboard() {
     } catch { /* storage unavailable: still play once */ }
     launchRef.current = launch({
       tagline: "HUMANITARIAN OSINT, ON DEMAND.",
-      footer: "IOM POLAND",
       width: window.innerWidth > 700 ? 424 : 254,
       minDuration: 1800,
+      dismiss: "click",
+      enterLabel: "Open the dashboard",
     });
   }, []);
   useEffect(() => {
