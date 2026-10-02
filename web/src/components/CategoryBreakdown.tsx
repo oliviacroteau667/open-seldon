@@ -7,6 +7,8 @@ interface Props {
   prevCategoryCounts: Record<string, number>;
   labelCount: number;
   total: number;
+  categoryFilter?: string | null;
+  onCategoryFilter?: (key: string | null) => void;
 }
 
 function trendLabel(cur: number, prev: number): { text: string; color: string } {
@@ -18,7 +20,7 @@ function trendLabel(cur: number, prev: number): { text: string; color: string } 
   return { text: "—", color: "#9A93B8" };
 }
 
-export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, labelCount, total }: Props) {
+export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, labelCount, total, categoryFilter, onCategoryFilter }: Props) {
   const rows = CATEGORIES.map((cat) => ({
     ...cat,
     count: categoryCounts[cat.key] ?? 0,
@@ -53,18 +55,30 @@ export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, 
 
       {/* Stacked bar */}
       <div style={{ display: "flex", height: 14, borderRadius: 3, overflow: "hidden", gap: 2 }}>
-        {rows.map((r) => (
-          <div
-            key={r.key}
-            title={`${r.name}: ${r.count}`}
-            style={{
-              flex: r.count || 0.01,
-              background: r.color,
-              transition: "flex .3s",
-              minWidth: r.count > 0 ? 2 : 0,
-            }}
-          />
-        ))}
+        {rows.map((r) => {
+          const isActive = categoryFilter === r.key;
+          const dimmed = categoryFilter !== null && !isActive;
+          return (
+            <div
+              key={r.key}
+              role="button"
+              tabIndex={r.count > 0 ? 0 : -1}
+              aria-pressed={isActive}
+              aria-label={`Filter by ${r.name}: ${r.count} messages`}
+              title={`${r.name}: ${r.count}`}
+              onClick={() => r.count > 0 && onCategoryFilter?.(isActive ? null : r.key)}
+              onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && r.count > 0) { e.preventDefault(); onCategoryFilter?.(isActive ? null : r.key); } }}
+              style={{
+                flex: r.count || 0.01,
+                background: r.color,
+                opacity: dimmed ? 0.3 : 1,
+                transition: "flex .3s, opacity .2s",
+                minWidth: r.count > 0 ? 2 : 0,
+                cursor: r.count > 0 ? "pointer" : "default",
+              }}
+            />
+          );
+        })}
       </div>
 
       {/* Grid */}
@@ -75,18 +89,44 @@ export default function CategoryBreakdown({ categoryCounts, prevCategoryCounts, 
         font: "400 12px 'Instrument Sans', sans-serif",
         color: "#C9C4E4",
       }}>
-        {rows.map((r) => (
-          <div key={r.key} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color, flexShrink: 0 }} />
-              {r.name}
-            </span>
-            <span style={{ font: "400 11px 'Space Mono', monospace", whiteSpace: "nowrap" }}>
-              {r.count}{" "}
-              <span style={{ color: r.trend.color }}>{r.trend.text}</span>
-            </span>
-          </div>
-        ))}
+        {rows.map((r) => {
+          const isActive = categoryFilter === r.key;
+          const dimmed = categoryFilter !== null && !isActive;
+          return (
+            <div
+              key={r.key}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isActive}
+              aria-label={`Filter by ${r.name}`}
+              onClick={() => onCategoryFilter?.(isActive ? null : r.key)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onCategoryFilter?.(isActive ? null : r.key); } }}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "3px 4px",
+                borderRadius: 4,
+                opacity: dimmed ? 0.4 : 1,
+                background: isActive ? "rgba(139,124,246,.12)" : "transparent",
+                outline: isActive ? "1px solid rgba(139,124,246,.4)" : "none",
+                cursor: "pointer",
+                transition: "opacity .2s, background .15s",
+              }}
+              onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,.04)"; }}
+              onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color, flexShrink: 0 }} />
+                {r.name}
+              </span>
+              <span style={{ font: "400 11px 'Space Mono', monospace", whiteSpace: "nowrap" }}>
+                {r.count}{" "}
+                <span style={{ color: r.trend.color }}>{r.trend.text}</span>
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

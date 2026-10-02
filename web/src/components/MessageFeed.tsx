@@ -1,7 +1,7 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import type { Message } from "@/types";
-import { CATEGORIES, catKeysForMessage, catForKey } from "@/types";
+import { catKeysForMessage, catForKey } from "@/types";
 
 interface Props {
   messages: Message[];
@@ -22,8 +22,7 @@ function formatTime(iso: string): string {
     " " + d.toTimeString().slice(0, 5);
 }
 
-export default function MessageFeed({ messages, categoryFilter, onCategoryFilter, total, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
-  const catFilterCat = categoryFilter ? catForKey(categoryFilter) : null;
+export default function MessageFeed({ messages, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
 
   const containerStyle: React.CSSProperties = flush ? {
     flex: 1,
@@ -60,40 +59,21 @@ export default function MessageFeed({ messages, categoryFilter, onCategoryFilter
   return (
     <div style={containerStyle}>
       {/* Header */}
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA" }}>
-            Messages{cityFilter ? ` · ${cityFilter}` : regionFilter ? ` · ${regionFilter}` : ""}
-          </span>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {(cityFilter || regionFilter) && (
-              <span
-                onClick={() => { onCityFilter?.(null); onRegionFilter?.(null); }}
-                style={{ font: "400 10px 'Space Mono', monospace", color: "#F5A524", cursor: "pointer" }}
-              >
-                CLEAR ✕
-              </span>
-            )}
-            <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>
-              {messages.length} · NEWEST FIRST
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA" }}>
+          Messages{cityFilter ? ` · ${cityFilter}` : regionFilter ? ` · ${regionFilter}` : ""}
+        </span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {(cityFilter || regionFilter) && (
+            <span
+              onClick={() => { onCityFilter?.(null); onRegionFilter?.(null); }}
+              style={{ font: "400 10px 'Space Mono', monospace", color: "#F5A524", cursor: "pointer" }}
+            >
+              CLEAR ✕
             </span>
-          </div>
-        </div>
-        {/* Filters */}
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <CategoryChip active={catFilterCat} onCycle={() => {
-            if (!categoryFilter) {
-              onCategoryFilter(CATEGORIES[0].key);
-            } else {
-              const idx = CATEGORIES.findIndex((c) => c.key === categoryFilter);
-              onCategoryFilter(idx >= CATEGORIES.length - 1 ? null : CATEGORIES[idx + 1].key);
-            }
-          }} />
-          <span style={{ font: "500 11px 'Instrument Sans', sans-serif", color: "#9A93B8", border: "1px solid #2B2745", padding: "4px 8px", borderRadius: 3, cursor: "default" }}>
-            Channel ▾
-          </span>
-          <span style={{ font: "500 11px 'Instrument Sans', sans-serif", color: "#9A93B8", border: "1px solid #2B2745", padding: "4px 8px", borderRadius: 3, cursor: "default" }}>
-            Language ▾
+          )}
+          <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>
+            {messages.length} · NEWEST FIRST
           </span>
         </div>
       </div>
@@ -112,24 +92,6 @@ export default function MessageFeed({ messages, categoryFilter, onCategoryFilter
   );
 }
 
-function CategoryChip({ active, onCycle }: { active: { name: string; color: string } | null; onCycle: () => void }) {
-  if (!active) {
-    return (
-      <span
-        onClick={onCycle}
-        style={{ font: "500 11px 'Instrument Sans', sans-serif", color: "#EDEBFA", background: "#1F1B33", border: "1px solid #1F1B33", padding: "4px 8px", borderRadius: 3, cursor: "pointer" }}>
-        All categories ▾
-      </span>
-    );
-  }
-  return (
-    <span
-      onClick={onCycle}
-      style={{ font: "500 11px 'Instrument Sans', sans-serif", color: active.color, background: "transparent", border: `1px solid ${active.color}`, padding: "4px 8px", borderRadius: 3, cursor: "pointer" }}>
-      {active.name} ▾
-    </span>
-  );
-}
 
 function MessageCard({ message: m }: { message: Message }) {
   const catKeys = catKeysForMessage(m);

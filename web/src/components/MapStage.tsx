@@ -164,6 +164,11 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     [regionCounts]
   );
 
+  const regionMaxDisplay = useMemo(
+    () => Math.max(0, ...Object.values(regionCounts)),
+    [regionCounts]
+  );
+
   const cityToRegion = useMemo(
     () => (geojson ? computeCityToRegion(cityClusters, geojson) : {}),
     [cityClusters, geojson]
@@ -332,7 +337,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
       {/* Legend */}
       {showRegions && (
-        <div aria-label={`Legend: messages per region, max ${regionMax}`} style={{ position: "absolute", left: sidebarWidth + 20, top: 114, zIndex: 5, transition: "left .2s", background: "rgba(18,16,30,.68)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 6, padding: "10px 12px", backdropFilter: "blur(20px)", font: "400 10px 'Space Mono', monospace", color: "#9A93B8", letterSpacing: ".04em", display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none" }}>
+        <div aria-label={`Legend: messages per region, max ${regionMaxDisplay}`} style={{ position: "absolute", left: sidebarWidth + 20, top: 114, zIndex: 5, transition: "left .2s", background: "rgba(18,16,30,.68)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 6, padding: "10px 12px", backdropFilter: "blur(20px)", font: "400 10px 'Space Mono', monospace", color: "#9A93B8", letterSpacing: ".04em", display: "flex", flexDirection: "column", gap: 6, pointerEvents: "none" }}>
           <span>MSGS / REGION</span>
           <div style={{ display: "flex", height: 8, width: 120, borderRadius: 2, overflow: "hidden" }}>
             {[0.08, 0.22, 0.38, 0.56, 0.75].map((a, i) => (
@@ -341,7 +346,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>0</span>
-            <span>{regionMax}</span>
+            <span>{regionMaxDisplay}</span>
           </div>
         </div>
       )}

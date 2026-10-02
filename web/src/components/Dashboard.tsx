@@ -269,6 +269,8 @@ export default function Dashboard() {
               prevCategoryCounts={prevCategoryCounts}
               labelCount={labelCount}
               total={inRange.length}
+              categoryFilter={categoryFilter}
+              onCategoryFilter={setCategoryFilter}
             />
           </div>
           {!isSmall && (
