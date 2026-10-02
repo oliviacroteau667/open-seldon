@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTheme, type ThemeMode } from "./ThemeProvider";
+import { MarkCheck } from "./MarkCheck";
 
 const THEME_MODES: { key: ThemeMode; label: string }[] = [
   { key: "light", label: "Light" },
@@ -162,29 +163,16 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
                 borderRadius: 6,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
-                opacity: on ? 1 : 0.55,
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--hover)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
             >
-              <span aria-hidden="true" style={{
-                width: 16,
-                height: 16,
-                flexShrink: 0,
-                borderRadius: 4,
-                border: `1px solid ${on ? "var(--accent)" : "var(--line-strong)"}`,
-                background: on ? "var(--accent)" : "transparent",
-                display: "grid",
-                placeItems: "center",
-                color: "var(--on-accent)",
-                font: "700 11px/1 'Space Mono', monospace",
-                margin: "0 2px",
-              }}>
-                {on ? "✓" : ""}
+              <span style={{ display: "grid", placeItems: "center", width: 20, flexShrink: 0 }}>
+                <MarkCheck checked={on} size={18} />
               </span>
               {!isCollapsed && (
                 <>
-                  <span style={{ font: "400 12px 'Instrument Sans', sans-serif", color: "var(--text-2)", flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ font: "400 12px 'Instrument Sans', sans-serif", color: on ? "var(--text)" : "var(--text-3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", transition: "color .25s" }}>
                     {ch}
                   </span>
                   <span aria-hidden="true" style={{ font: "400 11px 'Space Mono', monospace", color: "var(--text-3)" }}>

@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { Message } from "@/types";
 import { catKeysForMessage, catForKey } from "@/types";
+import { MarkCheck } from "./MarkCheck";
 
 interface Props {
   messages: Message[];
@@ -237,26 +238,12 @@ export default function MessageFeed({ messages, allMessages, inline, flush, city
             borderRadius: 6,
             cursor: "pointer",
             userSelect: "none",
-            opacity: threadsOnly ? 1 : 0.55,
           }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--hover)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
         >
-          <span aria-hidden="true" style={{
-            width: 16,
-            height: 16,
-            flexShrink: 0,
-            borderRadius: 4,
-            border: `1px solid ${threadsOnly ? "var(--accent)" : "var(--line-strong)"}`,
-            background: threadsOnly ? "var(--accent)" : "transparent",
-            display: "grid",
-            placeItems: "center",
-            color: "var(--on-accent)",
-            font: "700 11px/1 'Space Mono', monospace",
-          }}>
-            {threadsOnly ? "✓" : ""}
-          </span>
-          <span style={{ font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: "var(--text)" }}>
+          <MarkCheck checked={threadsOnly} size={18} />
+          <span style={{ font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", color: threadsOnly ? "var(--text)" : "var(--text-3)", transition: "color .25s" }}>
             THREADS ONLY
           </span>
         </div>

@@ -106,6 +106,15 @@ html, body {
   border-radius: 3px;
 }
 
+/* Mark checkbox (brand handoff): hands hinge at their base tips, resting 14° open; dot pops in as they close */
+.os-mark-check { overflow: visible; flex: none; display: block; }
+.os-mark-check .hand { fill: none; stroke: var(--text-4); stroke-width: 2; stroke-linecap: round; transition: stroke .25s, transform .35s cubic-bezier(.3,1.3,.4,1); }
+.os-mark-check .hand.l { transform-origin: 8.37px 17.79px; transform: translateX(-.4px) rotate(-14deg); }
+.os-mark-check .hand.r { transform-origin: 11.63px 17.79px; transform: translateX(.4px) rotate(14deg); }
+.os-mark-check .dot { fill: var(--text); transform-origin: 10px 7.5px; transform: scale(.3); opacity: 0; transition: transform .3s cubic-bezier(.3,1.4,.4,1) .08s, opacity .2s .08s; }
+.os-mark-check[data-checked="true"] .hand { stroke: var(--text); transform: none; }
+.os-mark-check[data-checked="true"] .dot { transform: scale(1); opacity: 1; }
+
 /* Feed scrollbar */
 .feed-scroll { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) var(--scroll-track); }
 .feed-scroll::-webkit-scrollbar { width: 5px; }
