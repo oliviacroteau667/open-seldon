@@ -9,8 +9,8 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #0A0912;
-  --panel: rgba(18,16,30,.85);
-  --panel-strong: rgba(18,16,30,.92);
+  --panel: rgba(18,16,30,.68);
+  --panel-strong: rgba(18,16,30,.88);
   --border: #221F33;
   --border-faint: rgba(255,255,255,.05);
   --line: #2B2745;
@@ -49,8 +49,8 @@
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #ECEAF3;
-  --panel: rgba(250,249,253,.85);
-  --panel-strong: rgba(250,249,253,.92);
+  --panel: rgba(250,249,253,.66);
+  --panel-strong: rgba(250,249,253,.88);
   --border: #D3CFE3;
   --border-faint: rgba(20,18,42,.05);
   --line: #CFCBE0;
