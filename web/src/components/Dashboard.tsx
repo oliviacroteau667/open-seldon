@@ -387,7 +387,7 @@ export default function Dashboard() {
           {/* Seldon panel */}
           <div style={{
             width: chat.width,
-            borderLeft: "1px solid var(--border)",
+            borderLeft: "1px solid var(--line-strong)",
             background: "var(--panel)",
             backdropFilter: "blur(20px)",
             display: "flex",
