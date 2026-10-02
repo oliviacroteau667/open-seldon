@@ -32,6 +32,7 @@ async def get_dashboard(
                 m.date,
                 m.channel_name,
                 m.raw_text,
+                m.reply_to_id,
                 p.translation,
                 p.detected_language,
                 p.categories,
@@ -79,6 +80,7 @@ async def get_dashboard(
             "text_original": row["raw_text"],
             "lang": row["detected_language"],
             "geocoded_locations": geo,
+            "reply_to_id": row["reply_to_id"],
         })
 
     return {

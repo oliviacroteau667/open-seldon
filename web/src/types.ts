@@ -17,6 +17,7 @@ export interface Message {
   text_original: string | null;
   lang: string | null;
   geocoded_locations: GeocodedLocation[];
+  reply_to_id: number | null;
 }
 
 export interface DashboardData {

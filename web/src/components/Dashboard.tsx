@@ -328,6 +328,7 @@ export default function Dashboard() {
           <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <MessageFeed
               messages={displayedMessages}
+              allMessages={allMessages}
               categoryFilter={categoryFilter}
               onCategoryFilter={setCategoryFilter}
               total={inRange.length}

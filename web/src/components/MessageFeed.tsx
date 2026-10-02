@@ -1,10 +1,11 @@
 "use client";
-import React from "react";
+import React, { useMemo, useState } from "react";
 import type { Message } from "@/types";
 import { catKeysForMessage, catForKey } from "@/types";
 
 interface Props {
   messages: Message[];
+  allMessages?: Message[]; // full unfiltered set — needed for thread view to bypass filters
   categoryFilter: string | null;
   onCategoryFilter: (key: string | null) => void;
   total: number;
@@ -22,7 +23,44 @@ function formatTime(iso: string): string {
     " " + d.toTimeString().slice(0, 5);
 }
 
-export default function MessageFeed({ messages, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
+// Resolve the root message id of a thread given any message id in it.
+function resolveRoot(id: number, byId: Map<number, Message>): number {
+  let cur = byId.get(id);
+  while (cur?.reply_to_id != null) {
+    const parent = byId.get(cur.reply_to_id);
+    if (!parent) break;
+    cur = parent;
+  }
+  return cur?.id ?? id;
+}
+
+export default function MessageFeed({ messages, allMessages, inline, flush, cityFilter, onCityFilter, regionFilter, onRegionFilter }: Props) {
+  const [threadRootId, setThreadRootId] = useState<number | null>(null);
+
+  // Index all available messages by id (use allMessages when available so thread view
+  // can pull in messages outside the current date/category/city filter).
+  const messagePool = allMessages ?? messages;
+  const byId = useMemo(() => new Map(messagePool.map((m) => [m.id, m])), [messagePool]);
+
+  // Build a set of message ids that have at least one reply in the pool (so we only
+  // show "View in thread" on messages that actually belong to a multi-message thread).
+  const hasReplies = useMemo(() => {
+    const s = new Set<number>();
+    for (const m of messagePool) {
+      if (m.reply_to_id != null) s.add(m.reply_to_id);
+    }
+    return s;
+  }, [messagePool]);
+
+  // Thread view: collect all messages sharing the same root, sorted oldest-first.
+  const threadMessages = useMemo(() => {
+    if (threadRootId == null) return null;
+    return messagePool
+      .filter((m) => resolveRoot(m.id, byId) === threadRootId)
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [threadRootId, messagePool, byId]);
+
+  const openThread = (msgId: number) => setThreadRootId(resolveRoot(msgId, byId));
 
   const containerStyle: React.CSSProperties = flush ? {
     flex: 1,
@@ -56,6 +94,48 @@ export default function MessageFeed({ messages, inline, flush, cityFilter, onCit
     zIndex: 10,
   };
 
+  // ── Thread view ──────────────────────────────────────────────────────────
+  if (threadRootId != null && threadMessages != null) {
+    const root = byId.get(threadRootId);
+    return (
+      <div style={containerStyle}>
+        {/* Breadcrumb */}
+        <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,.07)", display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            onClick={() => setThreadRootId(null)}
+            aria-label="Back to messages"
+            style={{ background: "none", border: "1px solid #2B2745", borderRadius: 5, color: "#9A93B8", font: "400 10px 'Space Mono', monospace", padding: "4px 8px", cursor: "pointer", flexShrink: 0 }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#8B7CF6"; (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#2B2745"; (e.currentTarget as HTMLButtonElement).style.color = "#9A93B8"; }}
+          >
+            ← BACK
+          </button>
+          <span style={{ font: "600 13px 'Instrument Sans', sans-serif", color: "#EDEBFA", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Thread · @{root?.channel ?? ""}
+          </span>
+          <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8", flexShrink: 0, marginLeft: "auto" }}>
+            {threadMessages.length} MSGS
+          </span>
+        </div>
+
+        {/* Thread messages, oldest first, replies indented */}
+        <div className="feed-scroll" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "6px 0" }}>
+          {threadMessages.map((m, i) => (
+            <MessageCard
+              key={m.id}
+              message={m}
+              isReply={m.reply_to_id != null}
+              isFirst={i === 0}
+              hasReplies={hasReplies.has(m.id)}
+              onViewThread={openThread}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Feed view ────────────────────────────────────────────────────────────
   return (
     <div style={containerStyle}>
       {/* Header */}
@@ -85,7 +165,16 @@ export default function MessageFeed({ messages, inline, flush, cityFilter, onCit
             No messages match the current channels and date range.
           </div>
         ) : (
-          messages.map((m) => <MessageCard key={m.id} message={m} />)
+          messages.map((m) => (
+            <MessageCard
+              key={m.id}
+              message={m}
+              isReply={false}
+              isFirst={false}
+              hasReplies={hasReplies.has(m.id)}
+              onViewThread={openThread}
+            />
+          ))
         )}
       </div>
     </div>
@@ -93,9 +182,18 @@ export default function MessageFeed({ messages, inline, flush, cityFilter, onCit
 }
 
 
-function MessageCard({ message: m }: { message: Message }) {
+interface CardProps {
+  message: Message;
+  isReply: boolean;
+  isFirst: boolean;
+  hasReplies: boolean;
+  onViewThread: (id: number) => void;
+}
+
+function MessageCard({ message: m, isReply, hasReplies, onViewThread }: CardProps) {
   const catKeys = catKeysForMessage(m);
   const primaryCat = catKeys.length > 0 ? catForKey(catKeys[0]) : null;
+  const showThreadBtn = m.reply_to_id != null || hasReplies;
 
   return (
     <div style={{
@@ -104,7 +202,7 @@ function MessageCard({ message: m }: { message: Message }) {
       flexDirection: "column",
       gap: 8,
       borderLeft: `3px solid ${primaryCat?.color ?? "#3A3555"}`,
-      margin: "4px 8px",
+      margin: isReply ? "4px 8px 4px 24px" : "4px 8px",
       background: "rgba(255,255,255,.03)",
       borderRadius: 6,
     }}>
@@ -135,6 +233,25 @@ function MessageCard({ message: m }: { message: Message }) {
             <span style={{ color: "#2B2745" }}>·</span>
             <span style={{ font: "400 10px 'Space Mono', monospace", color: "#9A93B8" }}>{m.lang.toUpperCase()}</span>
           </>
+        )}
+        {showThreadBtn && (
+          <button
+            onClick={() => onViewThread(m.id)}
+            style={{
+              marginLeft: "auto",
+              font: "400 10px 'Space Mono', monospace",
+              color: "#8B7CF6",
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#EDEBFA"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "#8B7CF6"; }}
+          >
+            view in thread →
+          </button>
         )}
       </div>
     </div>

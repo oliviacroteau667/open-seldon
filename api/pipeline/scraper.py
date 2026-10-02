@@ -89,11 +89,15 @@ async def scrape(channel: str, limit: int, full: bool, no_media: bool = False) -
                 except Exception:
                     log.warning("failed to download media for message %d", msg.id)
 
+            reply_to_id = None
+            if msg.reply_to and hasattr(msg.reply_to, "reply_to_msg_id"):
+                reply_to_id = msg.reply_to.reply_to_msg_id
+
             result = await conn.execute(
                 """
-                INSERT INTO messages (id, channel_id, channel_name, date, raw_text, media_type, media_path)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (id) DO NOTHING
+                INSERT INTO messages (id, channel_id, channel_name, date, raw_text, media_type, media_path, reply_to_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT (id) DO UPDATE SET reply_to_id = EXCLUDED.reply_to_id
                 """,
                 msg.id,
                 str(msg.chat_id),
@@ -102,6 +106,7 @@ async def scrape(channel: str, limit: int, full: bool, no_media: bool = False) -
                 msg.text,
                 mtype,
                 media_path,
+                reply_to_id,
             )
             if result == "INSERT 0 1":
                 inserted += 1
