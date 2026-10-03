@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTheme, type ThemeMode } from "./ThemeProvider";
 import { MarkCheck } from "./MarkCheck";
+import { SourceLink, sourceForChannel, sourceUrls } from "./SourceLink";
 
 const THEME_MODES: { key: ThemeMode; label: string }[] = [
   { key: "light", label: "Light" },
@@ -175,6 +176,11 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
                   <span style={{ font: "400 12px 'Instrument Sans', sans-serif", color: on ? "var(--text)" : "var(--text-3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", transition: "color .25s" }}>
                     {ch}
                   </span>
+                  <SourceLink
+                    kind={sourceForChannel(ch)}
+                    href={sourceUrls[sourceForChannel(ch)].channel(ch)}
+                    label={`Open @${ch} in ${sourceUrls[sourceForChannel(ch)].name}`}
+                  />
                   <span aria-hidden="true" style={{ font: "400 11px 'Space Mono', monospace", color: "var(--text-3)" }}>
                     {channelCounts[ch] ?? 0}
                   </span>

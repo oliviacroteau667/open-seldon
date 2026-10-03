@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { Message } from "@/types";
 import { catKeysForMessage, catForKey } from "@/types";
 import { MarkCheck } from "./MarkCheck";
+import { SourceLink, sourceForChannel, sourceUrls } from "./SourceLink";
 
 interface Props {
   messages: Message[];
@@ -301,7 +302,14 @@ function MessageCard({ message: m, isReply, hasReplies, onViewThread, highlighte
       transition: "background .3s, outline-color .3s",
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", font: "400 10px 'Space Mono', monospace", color: "var(--text-3)" }}>
-        <span>@{m.channel}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 2, marginLeft: -5 }}>
+          <SourceLink
+            kind={sourceForChannel(m.channel)}
+            href={sourceUrls[sourceForChannel(m.channel)].message(m.channel, m.id)}
+            label={`Open this message in ${sourceUrls[sourceForChannel(m.channel)].name}`}
+          />
+          @{m.channel}
+        </span>
         <span>{formatTime(m.timestamp)}</span>
       </div>
       <div style={{ font: "400 13px/1.5 'Instrument Sans', sans-serif", color: "var(--text)" }}>
