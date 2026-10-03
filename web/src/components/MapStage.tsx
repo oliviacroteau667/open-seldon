@@ -5,6 +5,8 @@ import { DeckGL } from "@deck.gl/react";
 import { FlyToInterpolator, type MapViewState } from "@deck.gl/core";
 import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { FeatureCollection, Feature, Polygon, MultiPolygon, GeoJsonProperties } from "geojson";
+import { feature as topoFeature } from "topojson-client";
+import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Message, CityCluster } from "@/types";
 import { buildCityClusters } from "@/types";
 import { useTheme } from "./ThemeProvider";
@@ -14,8 +16,11 @@ import "maplibre-gl/dist/maplibre-gl.css";
 const BASEMAP_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 const BASEMAP_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
-// World country boundaries — Natural Earth 110m (low-res, small file, no API key)
-const WORLD_GEOJSON_URL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson";
+// World country boundaries — Natural Earth 10m via world-atlas TopoJSON (tracks the basemap borders closely)
+const WORLD_TOPOJSON_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-10m.json";
+
+const countryName = (f: Feature) =>
+  String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? f.properties?.["name"] ?? "");
 
 // Region GeoJSON URL — override via NEXT_PUBLIC_REGION_GEOJSON_URL for other deployments.
 // Default: Poland voivodeships (open data, ppatrzyk/polska-geojson)
@@ -119,7 +124,7 @@ function computeCountryCounts(
       for (const feature of features) {
         if (!feature.geometry) continue;
         if (pointInPolygon(loc.lon, loc.lat, feature as Feature<Polygon | MultiPolygon>)) {
-          const name = String(feature.properties?.["ADMIN"] ?? feature.properties?.["NAME"] ?? "");
+          const name = countryName(feature);
           if (name) counts[name] = (counts[name] ?? 0) + 1;
           break;
         }
@@ -144,7 +149,7 @@ function computeCountryNameMap(
       for (const feature of features) {
         if (!feature.geometry) continue;
         if (pointInPolygon(loc.lon, loc.lat, feature as Feature<Polygon | MultiPolygon>)) {
-          map[key] = String(feature.properties?.["ADMIN"] ?? feature.properties?.["NAME"] ?? "");
+          map[key] = countryName(feature);
           break;
         }
       }
@@ -182,7 +187,10 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
   useEffect(() => {
     fetch(REGION_GEOJSON_URL).then((r) => r.json()).then(setGeojson).catch(console.warn);
-    fetch(WORLD_GEOJSON_URL).then((r) => r.json()).then(setWorldGeojson).catch(console.warn);
+    fetch(WORLD_TOPOJSON_URL)
+      .then((r) => r.json())
+      .then((topo: Topology) => setWorldGeojson(topoFeature(topo, topo.objects.countries as GeometryCollection) as FeatureCollection))
+      .catch(console.warn);
   }, []);
 
   const cityClusters = useMemo(() => buildCityClusters(messages), [messages]);
@@ -286,7 +294,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
       data: cityClusters.filter((d) => highlightCities!.has(d.city)),
       getPosition: (d) => [d.lon, d.lat, 0],
       radiusUnits: "pixels",
-      getRadius: (d) => (d.count > 0 ? 6 + Math.sqrt(d.count) * 2.6 : 4) + 10 + wave * 8,
+      getRadius: (d) => (d.count > 0 ? 3 + Math.sqrt(d.count) * 1.25 : 2.5) + 8 + wave * 7,
       filled: false,
       stroked: true,
       getLineColor: [...RGB.accentBright, Math.round(230 - wave * 150)],
@@ -309,7 +317,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           stroked: true,
           filled: true,
           getFillColor: (f: Feature) => {
-            const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            const name = countryName(f);
             if (highlightedCountries.has(name)) return [...RGB.accentBright, Math.round(0.5 * 255)];
             if (name === selectedRegion) return [...RGB.accentBright, Math.round(0.45 * 255)];
             const count = countryCounts[name] ?? 0;
@@ -317,12 +325,12 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
             return [...RGB.accent, Math.round(a * 255)];
           },
           getLineColor: (f: Feature) => {
-            const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            const name = countryName(f);
             if (highlightedCountries.has(name)) return isLight ? [22, 18, 43, 200] : [237, 235, 250, 220];
             return isLight ? [120, 110, 150, 70] : [80, 70, 100, 50];
           },
           getLineWidth: (f: Feature) => {
-            const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            const name = countryName(f);
             return highlightedCountries.has(name) ? 2 : 0.5;
           },
           lineWidthUnits: "pixels",
@@ -364,33 +372,47 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
       );
     }
 
-    // City scatter — radius scales with message count
+    // City "signal dots" — small solid lime dots with a soft glow, sized gently by message count
+    const dotRadius = (d: CityCluster) => {
+      const base = d.count > 0 ? 3 + Math.sqrt(d.count) * 1.25 : 2.5;
+      return base + (selectedCity === d.city ? 2 : 0) + (highlightCities?.has(d.city) ? 1.5 : 0);
+    };
+    const dotColor = (d: CityCluster): [number, number, number] =>
+      selectedCity === d.city ? [255, 200, 50]
+      : highlightCities?.has(d.city) ? RGB.accentBright
+      : RGB.lime;
+
+    out.push(
+      new ScatterplotLayer<CityCluster>({
+        id: "city-glow",
+        data: cityClusters,
+        pickable: false,
+        getPosition: (d) => [d.lon, d.lat, 0],
+        radiusUnits: "pixels",
+        getRadius: (d) => dotRadius(d) * 2.4,
+        getFillColor: (d) => [...dotColor(d), isLight ? 38 : 55],
+        stroked: false,
+        updateTriggers: { getRadius: [cityClusters, selectedCity, highlightCities], getFillColor: [selectedCity, highlightCities, RGB, isLight] },
+      })
+    );
     out.push(
       new ScatterplotLayer<CityCluster>({
         id: "city-scatter",
         data: cityClusters,
         pickable: true,
         getPosition: (d) => [d.lon, d.lat, 0],
-        getRadius: (d) => {
-          const base = d.count > 0 ? 6 + Math.sqrt(d.count) * 2.6 : 4;
-          return base + (selectedCity === d.city ? 4 : 0) + (highlightCities?.has(d.city) ? 3 : 0);
-        },
         radiusUnits: "pixels",
-        getFillColor: (d) =>
-          selectedCity === d.city ? [255, 200, 50, 240]
-          : highlightCities?.has(d.city) ? [...RGB.accentBright, 240]
-          : [...RGB.lime, 140],
+        getRadius: dotRadius,
+        getFillColor: (d) => [...dotColor(d), 235],
         getLineColor: (d) =>
-          selectedCity === d.city ? [255, 200, 50, 160]
-          : highlightCities?.has(d.city) ? (isLight ? [22, 18, 43, 200] : [255, 255, 255, 200])
-          : [...RGB.lime, 50],
-        lineWidthMinPixels: 0,
+          highlightCities?.has(d.city) ? (isLight ? [22, 18, 43, 200] : [255, 255, 255, 220]) : [255, 255, 255, isLight ? 120 : 70],
         stroked: true,
-        getLineWidth: 4,
+        lineWidthUnits: "pixels",
+        getLineWidth: 1,
         updateTriggers: {
           getRadius: [cityClusters, selectedCity, highlightCities],
           getFillColor: [selectedCity, highlightCities, RGB],
-          getLineColor: [selectedCity, highlightCities, RGB],
+          getLineColor: [highlightCities, isLight],
         },
       })
     );
@@ -439,7 +461,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
             if (name) { onRegionClick?.(selectedRegion === name ? null : name); onCityClick?.(null); }
           } else if (info.layer?.id === "countries") {
             const f = info.object as Feature;
-            const name = String(f.properties?.["ADMIN"] ?? f.properties?.["NAME"] ?? "");
+            const name = countryName(f);
             if (name) { onRegionClick?.(selectedRegion === name ? null : name); onCityClick?.(null); }
           } else {
             onCityClick?.(null);
@@ -453,6 +475,19 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           attributionControl={false}
         />
       </DeckGL>
+
+      {/* Screen-fixed grid, same texture as the launch screen */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 1,
+          pointerEvents: "none",
+          backgroundImage:
+            "repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 40px)",
+        }}
+      />
 
       {/* Layer toggles — pointer-events only on these pills */}
       <div style={{ position: "absolute", left: sidebarWidth + 20, top: 76, display: "flex", gap: 6, zIndex: 5, pointerEvents: "none", transition: "left .2s" }}>

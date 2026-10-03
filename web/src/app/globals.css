@@ -34,6 +34,7 @@
   --negative: #E8553E;
   --warn: #F5A524;
   --shadow: 0 20px 60px rgba(0,0,0,.5);
+  --grid-line: rgba(255,255,255,.035);
   --scroll-track: #120E1F;
   --scroll-thumb: #3D3465;
   --scroll-thumb-hover: #6B5EAC;
@@ -75,6 +76,7 @@
   --negative: #D6452F;
   --warn: #C9810A;
   --shadow: 0 20px 60px rgba(20,18,42,.15);
+  --grid-line: rgba(20,18,42,.06);
   --scroll-track: #E4E1EE;
   --scroll-thumb: #BDB8D4;
   --scroll-thumb-hover: #8A84A8;
