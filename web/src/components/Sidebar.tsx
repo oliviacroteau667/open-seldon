@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useTheme, type ThemeMode } from "./ThemeProvider";
 import { MarkCheck } from "./MarkCheck";
 import { SourceLink, sourceForChannel, sourceUrls } from "./SourceLink";
+import { GlobeIcon, NewspaperIcon, BellIcon, GearIcon } from "./icons";
 
 const THEME_MODES: { key: ThemeMode; label: string }[] = [
   { key: "light", label: "Light" },
@@ -24,10 +25,9 @@ interface Props {
 }
 
 const PAGES = [
-  { glyph: "DSH", label: "Dashboard", active: true, dot: false },
-  { glyph: "MSG", label: "Messages", active: false, dot: false },
-  { glyph: "RPT", label: "Reports", active: false, dot: false },
-  { glyph: "ALR", label: "Alerts", active: false, dot: true },
+  { label: "Dashboard", Icon: GlobeIcon, active: true, dot: false },
+  { label: "Reports", Icon: NewspaperIcon, active: false, dot: false },
+  { label: "Alerts", Icon: BellIcon, active: false, dot: true },
 ];
 
 function activateOnEnterSpace(fn: () => void) {
@@ -97,7 +97,7 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
       {/* Pages */}
       {PAGES.map((p) => (
         <div
-          key={p.glyph}
+          key={p.label}
           role="button"
           tabIndex={0}
           aria-label={p.label + (p.dot ? " (has notifications)" : "")}
@@ -117,8 +117,8 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
           onMouseEnter={(e) => { if (!p.active) (e.currentTarget as HTMLDivElement).style.background = "var(--hover)"; }}
           onMouseLeave={(e) => { if (!p.active) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
         >
-          <span aria-hidden="true" style={{ width: 20, flexShrink: 0, textAlign: "center", font: "700 10px 'Space Mono', monospace", letterSpacing: ".04em" }}>
-            {p.glyph}
+          <span aria-hidden="true" style={{ width: 20, flexShrink: 0, display: "grid", placeItems: "center" }}>
+            <p.Icon size={16} />
           </span>
           {!isCollapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif", flex: 1 }}>{p.label}</span>}
           {!isCollapsed && p.dot && <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--negative)", flexShrink: 0 }} />}
@@ -219,7 +219,9 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
         onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.color = "var(--text)"; }}
         onMouseLeave={(e) => { if (!settingsOpen) (e.currentTarget as HTMLDivElement).style.color = "var(--text-3)"; }}
       >
-        <span aria-hidden="true" style={{ width: 20, flexShrink: 0, textAlign: "center", font: "400 13px 'Space Mono', monospace" }}>⚙</span>
+        <span aria-hidden="true" style={{ width: 20, flexShrink: 0, display: "grid", placeItems: "center" }}>
+          <GearIcon size={16} />
+        </span>
         {!isCollapsed && <span style={{ font: "500 13px 'Instrument Sans', sans-serif" }}>Settings</span>}
       </div>
 
