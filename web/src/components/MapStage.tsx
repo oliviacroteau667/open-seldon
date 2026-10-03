@@ -1,45 +1,82 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { DeckGL } from "@deck.gl/react";
-import { _GlobeView as GlobeView, LinearInterpolator, type GlobeViewState } from "@deck.gl/core";
-import { BitmapLayer, GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
-import { TileLayer } from "@deck.gl/geo-layers";
-import type { FeatureCollection, Feature, Polygon, MultiPolygon, GeoJsonProperties } from "geojson";
+import Map, { useMap, type MapRef } from "react-map-gl/maplibre";
+import type { IControl } from "maplibre-gl";
+import { MapboxOverlay, type MapboxOverlayProps } from "@deck.gl/mapbox";
+import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+import type { FeatureCollection, Feature, Polygon, MultiPolygon, Position, GeoJsonProperties } from "geojson";
 import { feature as topoFeature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Message, CityCluster } from "@/types";
 import { buildCityClusters } from "@/types";
 import { useTheme } from "./ThemeProvider";
+import "maplibre-gl/dist/maplibre-gl.css";
 
-// Esri World Gray Canvas raster tiles draped onto the globe — free with attribution, no API key.
-// "Base" has no labels; "Reference" is the matching label layer, drawn above the choropleth.
-const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
-const RASTER = {
-  dark: { base: `${ESRI}/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, labels: `${ESRI}/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}` },
-  light: { base: `${ESRI}/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`, labels: `${ESRI}/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}` },
-};
-const RASTER_MAX_ZOOM = 16;
+// CARTO vector basemaps — free, no API key required (attribution shown on the map)
+const BASEMAP_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+const BASEMAP_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
-const GLOBE_VIEW = new GlobeView({ id: "globe", controller: true });
+// deck.gl layers rendered over the MapLibre map, synced to its (globe) camera.
+// Managed by hand rather than useControl: on removal deck leaves its canvas container
+// behind, which under React StrictMode's double mount left an orphan canvas on the map.
+function DeckGLOverlay(props: MapboxOverlayProps) {
+  const { current: map } = useMap();
+  const overlayRef = useRef<MapboxOverlay | null>(null);
 
-function rasterLayer(id: string, url: string, opacity = 1) {
-  return new TileLayer({
-    id,
-    data: url,
-    minZoom: 0,
-    maxZoom: RASTER_MAX_ZOOM,
-    tileSize: 256,
-    opacity,
-    renderSubLayers: (props) => {
-      const [[west, south], [east, north]] = props.tile.boundingBox;
-      return new BitmapLayer({
-        ...props,
-        data: undefined,
-        image: props.data as ImageBitmap,
-        bounds: [west, south, east, north],
+  useEffect(() => {
+    if (!map) return;
+    const mapEl = map.getContainer();
+    const before = new Set(mapEl.querySelectorAll("canvas"));
+    const overlay = new MapboxOverlay(props);
+    map.addControl(overlay as unknown as IControl);
+    overlayRef.current = overlay;
+    return () => {
+      overlayRef.current = null;
+      map.removeControl(overlay as unknown as IControl);
+      overlay.finalize();
+      // Remove the control wrapper(s) deck created for this mount (it leaves them in the ctrl container)
+      mapEl.querySelectorAll("canvas").forEach((c) => {
+        if (before.has(c)) return;
+        let el: Element = c;
+        while (el.parentElement && el.parentElement !== mapEl && !el.parentElement.className.includes("maplibregl-ctrl")) {
+          el = el.parentElement;
+        }
+        el.remove();
       });
-    },
-  });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map]);
+
+  useEffect(() => { overlayRef.current?.setProps(props); });
+  return null;
+}
+
+// Make rings that cross the antimeridian continuous (e.g. 170 → 190 instead of 170 → -170),
+// so neither projection draws a line across the world between the two sides.
+function unwrapAntimeridian(fc: FeatureCollection): FeatureCollection {
+  const fixRing = (ring: Position[]): Position[] => {
+    let offset = 0;
+    return ring.map((p, i) => {
+      if (i > 0) {
+        const d = p[0] - ring[i - 1][0];
+        if (d > 180) offset -= 360;
+        else if (d < -180) offset += 360;
+      }
+      return [p[0] + offset, p[1]];
+    });
+  };
+  return {
+    ...fc,
+    features: fc.features.map((f) => {
+      if (f.geometry?.type === "Polygon") {
+        return { ...f, geometry: { ...f.geometry, coordinates: f.geometry.coordinates.map(fixRing) } };
+      }
+      if (f.geometry?.type === "MultiPolygon") {
+        return { ...f, geometry: { ...f.geometry, coordinates: f.geometry.coordinates.map((poly) => poly.map(fixRing)) } };
+      }
+      return f;
+    }),
+  };
 }
 
 // World country boundaries — Natural Earth 10m via world-atlas TopoJSON (tracks the basemap borders closely)
@@ -215,7 +252,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     fetch(REGION_GEOJSON_URL).then((r) => r.json()).then(setGeojson).catch(console.warn);
     fetch(WORLD_TOPOJSON_URL)
       .then((r) => r.json())
-      .then((topo: Topology) => setWorldGeojson(topoFeature(topo, topo.objects.countries as GeometryCollection) as FeatureCollection))
+      .then((topo: Topology) => setWorldGeojson(unwrapAntimeridian(topoFeature(topo, topo.objects.countries as GeometryCollection) as FeatureCollection)))
       .catch(console.warn);
   }, []);
 
@@ -255,26 +292,18 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialViewState = useMemo(() => fitViewToMessages(messages), []);
-  const [viewState, setViewState] = useState<GlobeViewState>({ ...initialViewState, minZoom: 0.4, maxZoom: 14 });
-  const zoom = viewState.zoom;
+  const mapRef = useRef<MapRef>(null);
+  const [zoom, setZoom] = useState<number>(initialViewState.zoom);
 
   useEffect(() => {
     if (!flyTo) return;
-    // Shift the map centre so the target lands in the middle of the map area that
-    // isn't covered by the sidebar or the right-hand panels.
-    const fullW = containerRef.current?.clientWidth ?? 0;
-    const visibleCenterX = sidebarWidth + (fullW - sidebarWidth - rightInset) / 2;
-    const shiftPx = fullW / 2 - visibleCenterX;
-    const degPerPx = 360 / (512 * Math.pow(2, flyTo.zoom));
-    setViewState((v) => ({
-      ...v,
-      longitude: flyTo.longitude + shiftPx * degPerPx,
-      latitude: flyTo.latitude,
+    // Padding keeps the target centred in the map area not covered by the sidebar / right panels
+    mapRef.current?.flyTo({
+      center: [flyTo.longitude, flyTo.latitude],
       zoom: flyTo.zoom,
-      transitionDuration: 1000,
-      transitionEasing: (t: number) => 1 - Math.pow(1 - t, 3),
-      transitionInterpolator: new LinearInterpolator({ transitionProps: ["longitude", "latitude", "zoom"] }),
-    }));
+      duration: 1400,
+      padding: { left: sidebarWidth, right: rightInset, top: 0, bottom: 0 },
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyTo]);
 
@@ -333,10 +362,6 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
   const layers = useMemo(() => {
     const out = [];
-
-    // Raster basemap (no labels) draped on the globe; labels are added above the choropleth below
-    const raster = isLight ? RASTER.light : RASTER.dark;
-    out.push(rasterLayer("basemap", raster.base));
 
     // World country choropleth — toggled with regions
     if (showRegions && worldGeojson) {
@@ -402,9 +427,6 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         })
       );
     }
-
-    // Basemap labels sit above the fills so place names stay legible through the choropleth
-    out.push(rasterLayer("basemap-labels", raster.labels, isLight ? 0.9 : 0.8));
 
     // City "signal dots" — small solid lime dots with a soft glow, sized gently by message count
     const dotRadius = (d: CityCluster) => {
@@ -477,13 +499,21 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
   return (
     <div ref={containerRef} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} role="application" aria-label="Message map">
-      {/* DeckGL manages its own canvas; Map provides the basemap underneath */}
-      <DeckGL
-        views={GLOBE_VIEW}
-        viewState={viewState}
+      {/* MapLibre globe basemap; deck.gl layers are interleaved into it via MapboxOverlay */}
+      <Map
+        ref={mapRef}
+        initialViewState={initialViewState}
+        mapStyle={isLight ? BASEMAP_LIGHT : BASEMAP_DARK}
+        projection={{ type: "globe" }}
+        minZoom={0.4}
+        maxZoom={14}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        attributionControl={false}
+        onMove={(e) => setZoom(e.viewState.zoom)}
+      >
+      <DeckGLOverlay
+        interleaved={false}
         layers={ringLayer ? [...layers, ringLayer] : layers}
-        style={{ position: "absolute", top: "0", left: "0", right: "0", bottom: "0" }}
-        onViewStateChange={({ viewState: vs }) => setViewState(vs as GlobeViewState)}
         getCursor={({ isDragging, isHovering }) => isDragging ? "grabbing" : isHovering ? "pointer" : "grab"}
         onClick={(info) => {
           if (info.layer?.id === "city-scatter") {
@@ -503,10 +533,11 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           }
         }}
       />
+      </Map>
 
-      {/* Basemap attribution (Esri World Gray Canvas) */}
+      {/* Basemap attribution (CARTO styles over OpenStreetMap data) */}
       <span aria-label="Map attribution" style={{ position: "absolute", top: 80, right: rightInset + 20, zIndex: 5, pointerEvents: "none", font: "400 9px 'Space Mono', monospace", letterSpacing: ".04em", color: "var(--text-4)" }}>
-        Tiles © Esri · © OpenStreetMap contributors
+        © CARTO · © OpenStreetMap contributors
       </span>
 
       {/* Screen-fixed grid, same texture as the launch screen */}
