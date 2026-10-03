@@ -1,20 +1,46 @@
 "use client";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Map, { type MapRef } from "react-map-gl/maplibre";
 import { DeckGL } from "@deck.gl/react";
-import { FlyToInterpolator, type MapViewState } from "@deck.gl/core";
-import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+import { _GlobeView as GlobeView, LinearInterpolator, type GlobeViewState } from "@deck.gl/core";
+import { BitmapLayer, GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+import { TileLayer } from "@deck.gl/geo-layers";
 import type { FeatureCollection, Feature, Polygon, MultiPolygon, GeoJsonProperties } from "geojson";
 import { feature as topoFeature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Message, CityCluster } from "@/types";
 import { buildCityClusters } from "@/types";
 import { useTheme } from "./ThemeProvider";
-import "maplibre-gl/dist/maplibre-gl.css";
 
-// CARTO basemaps — free, no API key required
-const BASEMAP_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
-const BASEMAP_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+// Esri World Gray Canvas raster tiles draped onto the globe — free with attribution, no API key.
+// "Base" has no labels; "Reference" is the matching label layer, drawn above the choropleth.
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
+const RASTER = {
+  dark: { base: `${ESRI}/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}`, labels: `${ESRI}/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}` },
+  light: { base: `${ESRI}/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`, labels: `${ESRI}/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}` },
+};
+const RASTER_MAX_ZOOM = 16;
+
+const GLOBE_VIEW = new GlobeView({ id: "globe", controller: true });
+
+function rasterLayer(id: string, url: string, opacity = 1) {
+  return new TileLayer({
+    id,
+    data: url,
+    minZoom: 0,
+    maxZoom: RASTER_MAX_ZOOM,
+    tileSize: 256,
+    opacity,
+    renderSubLayers: (props) => {
+      const [[west, south], [east, north]] = props.tile.boundingBox;
+      return new BitmapLayer({
+        ...props,
+        data: undefined,
+        image: props.data as ImageBitmap,
+        bounds: [west, south, east, north],
+      });
+    },
+  });
+}
 
 // World country boundaries — Natural Earth 10m via world-atlas TopoJSON (tracks the basemap borders closely)
 const WORLD_TOPOJSON_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-10m.json";
@@ -161,7 +187,7 @@ function computeCountryNameMap(
 function fitViewToMessages(messages: Message[]) {
   const coords = messages.filter((m) => m.lat != null && m.lon != null);
   if (coords.length === 0) {
-    return { longitude: 0, latitude: 20, zoom: 2, pitch: 0, bearing: 0 };
+    return { longitude: 0, latitude: 20, zoom: 1.5 };
   }
   const lats = coords.map((m) => m.lat as number);
   const lons = coords.map((m) => m.lon as number);
@@ -171,7 +197,7 @@ function fitViewToMessages(messages: Message[]) {
   const centerLon = (minLon + maxLon) / 2;
   const spread = Math.max(maxLat - minLat, maxLon - minLon);
   const zoom = spread < 0.5 ? 10 : spread < 2 ? 8 : spread < 5 ? 6 : spread < 15 ? 5 : spread < 40 ? 4 : 2;
-  return { longitude: centerLon, latitude: centerLat, zoom, pitch: 0, bearing: 0 };
+  return { longitude: centerLon, latitude: centerLat, zoom };
 }
 
 function alphaForCount(count: number, max: number): number {
@@ -229,7 +255,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialViewState = useMemo(() => fitViewToMessages(messages), []);
-  const [viewState, setViewState] = useState<MapViewState>(initialViewState);
+  const [viewState, setViewState] = useState<GlobeViewState>({ ...initialViewState, minZoom: 0.4, maxZoom: 14 });
   const zoom = viewState.zoom;
 
   useEffect(() => {
@@ -245,8 +271,9 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
       longitude: flyTo.longitude + shiftPx * degPerPx,
       latitude: flyTo.latitude,
       zoom: flyTo.zoom,
-      transitionDuration: 900,
-      transitionInterpolator: new FlyToInterpolator({ speed: 1.6 }),
+      transitionDuration: 1000,
+      transitionEasing: (t: number) => 1 - Math.pow(1 - t, 3),
+      transitionInterpolator: new LinearInterpolator({ transitionProps: ["longitude", "latitude", "zoom"] }),
     }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flyTo]);
@@ -307,7 +334,11 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
   const layers = useMemo(() => {
     const out = [];
 
-    // World country choropleth — beneath everything, toggled with regions
+    // Raster basemap (no labels) draped on the globe; labels are added above the choropleth below
+    const raster = isLight ? RASTER.light : RASTER.dark;
+    out.push(rasterLayer("basemap", raster.base));
+
+    // World country choropleth — toggled with regions
     if (showRegions && worldGeojson) {
       out.push(
         new GeoJsonLayer({
@@ -371,6 +402,9 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         })
       );
     }
+
+    // Basemap labels sit above the fills so place names stay legible through the choropleth
+    out.push(rasterLayer("basemap-labels", raster.labels, isLight ? 0.9 : 0.8));
 
     // City "signal dots" — small solid lime dots with a soft glow, sized gently by message count
     const dotRadius = (d: CityCluster) => {
@@ -445,11 +479,11 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     <div ref={containerRef} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} role="application" aria-label="Message map">
       {/* DeckGL manages its own canvas; Map provides the basemap underneath */}
       <DeckGL
+        views={GLOBE_VIEW}
         viewState={viewState}
-        controller={true}
         layers={ringLayer ? [...layers, ringLayer] : layers}
         style={{ position: "absolute", top: "0", left: "0", right: "0", bottom: "0" }}
-        onViewStateChange={({ viewState: vs }) => setViewState(vs as MapViewState)}
+        onViewStateChange={({ viewState: vs }) => setViewState(vs as GlobeViewState)}
         getCursor={({ isDragging, isHovering }) => isDragging ? "grabbing" : isHovering ? "pointer" : "grab"}
         onClick={(info) => {
           if (info.layer?.id === "city-scatter") {
@@ -468,13 +502,12 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
             onRegionClick?.(null);
           }
         }}
-      >
-        <Map
-          mapStyle={isLight ? BASEMAP_LIGHT : BASEMAP_DARK}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-          attributionControl={false}
-        />
-      </DeckGL>
+      />
+
+      {/* Basemap attribution (Esri World Gray Canvas) */}
+      <span aria-label="Map attribution" style={{ position: "absolute", top: 80, right: rightInset + 20, zIndex: 5, pointerEvents: "none", font: "400 9px 'Space Mono', monospace", letterSpacing: ".04em", color: "var(--text-4)" }}>
+        Tiles © Esri · © OpenStreetMap contributors
+      </span>
 
       {/* Screen-fixed grid, same texture as the launch screen */}
       <div
