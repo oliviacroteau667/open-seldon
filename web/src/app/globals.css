@@ -35,6 +35,13 @@
   --warn: #F5A524;
   --shadow: 0 20px 60px rgba(0,0,0,.5);
   --grid-line: rgba(255,255,255,.035);
+  --brand-hand-top: #C9BFFF;
+  --brand-hand-top-a: .85;
+  --brand-hand-bottom: #8B7CF6;
+  --brand-hand-bottom-a: .45;
+  --brand-rim: #FFFFFF;
+  --brand-rim-a: .6;
+  --brand-dot: #64B837;
   --scroll-track: #120E1F;
   --scroll-thumb: #3D3465;
   --scroll-thumb-hover: #6B5EAC;
@@ -77,6 +84,13 @@
   --warn: #C9810A;
   --shadow: 0 20px 60px rgba(20,18,42,.15);
   --grid-line: rgba(20,18,42,.06);
+  --brand-hand-top: #8B7CF6;
+  --brand-hand-top-a: .9;
+  --brand-hand-bottom: #6A5BE0;
+  --brand-hand-bottom-a: .6;
+  --brand-rim: #6A5BE0;
+  --brand-rim-a: .35;
+  --brand-dot: #4E9A22;
   --scroll-track: #E4E1EE;
   --scroll-thumb: #BDB8D4;
   --scroll-thumb-hover: #8A84A8;

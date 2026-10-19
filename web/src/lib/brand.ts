@@ -80,21 +80,30 @@ interface Built {
   clip?: SVGRectElement; g: Geo;
 }
 
-interface BuildOptions { width?: number; text?: string; revealed?: boolean }
+// palette "theme" (default) reads the --brand-* tokens so the mark matches the static light/dark
+// logos; "dark" pins the dark-theme colours for surfaces that are always dark (the launch overlay).
+interface BuildOptions { width?: number; text?: string; revealed?: boolean; palette?: "theme" | "dark" }
 
 function build(kind: Kind, o: BuildOptions): Built {
   const g = GEO[kind];
   const id = "os" + ++uid;
-  const text = o.text || "var(--text, #EDEBFA)";
+  const pinned = o.palette === "dark";
+  const v = (token: string, fallback: string) => (pinned ? fallback : `var(${token}, ${fallback})`);
+  const text = o.text || v("--text", "#EDEBFA");
   const svg = el("svg", { viewBox: g.vb, fill: "none" });
   svg.style.cssText = "overflow:visible;display:block;" +
     (o.width ? `width:${o.width}px;height:${(o.width * g.h) / g.w}px` : "width:100%;height:auto");
   const defs = el("defs", {}, svg);
   const lg = el("linearGradient", { id: id + "h", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
-  el("stop", { offset: 0, "stop-color": "#C9BFFF", "stop-opacity": 0.85 }, lg);
-  el("stop", { offset: 1, "stop-color": "#8B7CF6", "stop-opacity": 0.45 }, lg);
+  const s1 = el("stop", { offset: 0 }, lg);
+  s1.style.stopColor = v("--brand-hand-top", "#C9BFFF");
+  s1.style.stopOpacity = v("--brand-hand-top-a", ".85");
+  const s2 = el("stop", { offset: 1 }, lg);
+  s2.style.stopColor = v("--brand-hand-bottom", "#8B7CF6");
+  s2.style.stopOpacity = v("--brand-hand-bottom-a", ".45");
   const f = el("filter", { id: id + "g", x: "-100%", y: "-100%", width: "300%", height: "300%" }, defs);
-  el("feDropShadow", { dx: 0, dy: 0, stdDeviation: 2.5, "flood-color": "#64B837", "flood-opacity": 0.9 }, f);
+  const glow = el("feDropShadow", { dx: 0, dy: 0, stdDeviation: 2.5, "flood-opacity": 0.9 }, f);
+  glow.style.floodColor = v("--brand-dot", "#64B837");
 
   let clip: SVGRectElement | undefined;
   if (kind === "lockup") {
@@ -112,17 +121,21 @@ function build(kind: Kind, o: BuildOptions): Built {
   hands.style.transformOrigin = `${g.cx}px ${g.cy}px`;
   const h1 = el("g", { stroke: `url(#${id}h)`, "stroke-width": g.sw, "stroke-linecap": "round" }, hands);
   g.hands.forEach((d) => el("path", { d }, h1));
-  const h2 = el("g", { stroke: "#FFFFFF", "stroke-opacity": 0.6, "stroke-width": g.rimW, "stroke-linecap": "round" }, hands);
+  const h2 = el("g", { "stroke-width": g.rimW, "stroke-linecap": "round" }, hands);
+  h2.style.stroke = v("--brand-rim", "#FFFFFF");
+  h2.style.strokeOpacity = v("--brand-rim-a", ".6");
   g.rim.forEach((d) => el("path", { d }, h2));
 
   const ring = () => {
-    const c = el("circle", { cx: g.dx, cy: g.dy, r: g.r, stroke: "#64B837", "stroke-width": g.ringW, opacity: 0 }, O);
+    const c = el("circle", { cx: g.dx, cy: g.dy, r: g.r, "stroke-width": g.ringW, opacity: 0 }, O);
+    c.style.stroke = v("--brand-dot", "#64B837");
     c.style.transformOrigin = `${g.dx}px ${g.dy}px`;
     return c;
   };
   const r1 = ring();
   const r2 = ring();
-  const dot = el("circle", { cx: g.dx, cy: g.dy, r: g.r, fill: "#64B837", filter: `url(#${id}g)` }, O);
+  const dot = el("circle", { cx: g.dx, cy: g.dy, r: g.r, filter: `url(#${id}g)` }, O);
+  dot.style.fill = v("--brand-dot", "#64B837");
   dot.style.transformOrigin = `${g.dx}px ${g.dy}px`;
   return { svg, O, hands, dot, r1, r2, clip, g };
 }
@@ -232,7 +245,7 @@ export function launch(o: LaunchOptions = {}): LaunchHandle {
   if (foot && o.footer) foot.textContent = o.footer;
 
   // The overlay is always dark, so the wordmark keeps the light fill regardless of theme
-  const c = controller("lockup", center, { width, revealed: false, text: "#EDEBFA" });
+  const c = controller("lockup", center, { width, revealed: false, palette: "dark" });
 
   // Tagline row: caption + (in click mode) a minimalist arrow with a generous hit area
   const big = width > 300;
