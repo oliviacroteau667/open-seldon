@@ -14,9 +14,9 @@ open-seldon/
 
 ## Architecture
 
-- **Frontend**: Next.js on **Vercel** — auto-deploys when `master` branch is pushed
+- **Frontend**: Next.js on **Vercel** — auto-deploys from the Vercel production branch (should be `main`; confirm it isn't still the legacy `master`)
 - **Backend**: Python API + pgvector/Postgres + Caddy, running on **Hetzner** via Docker Compose
-- **Local branch**: `main` → push to remote `master` with `git push origin HEAD:master`
+- **Branch**: `main` is the only real branch (GitHub default). A legacy `master` branch exists on GitHub; keep it mirrored (`git push origin main:master`) until Vercel is confirmed on `main`, then delete it.
 
 ## Common Commands
 
@@ -39,9 +39,9 @@ Then restart the dev server.
 
 ### Push
 ```bash
-git push origin HEAD:master
+git push origin main
 ```
-Always push to `master` — Vercel watches that branch.
+`deploy.yml` triggers on pushes to `main` (and can be run manually via workflow_dispatch).
 
 ### Backend (local)
 ```bash
@@ -63,7 +63,7 @@ docker compose logs -f openseldon-api
 
 ## Permissions
 
-Claude may push to `origin/master` on this repo without asking first.
+Claude may push to `origin/main` (and mirror to `origin/master`) on this repo without asking first.
 
 ## Deploy
 

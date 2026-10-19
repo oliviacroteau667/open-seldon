@@ -2,7 +2,7 @@ name: Deploy to Hetzner
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'api/**'
       - 'docker-compose.yml'
@@ -10,6 +10,7 @@ on:
       - 'nginx/**'
       - 'scripts/**'
       - 'deploy/authentik/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -23,7 +24,7 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             cd /root/open-seldon
-            git pull origin master
+            git pull origin main
             docker compose -f docker-compose.yml -f docker-compose.prod.yml \
               up -d --build openseldon-api openseldon-caddy \
               openseldon-redis openseldon-authentik-server openseldon-authentik-worker
