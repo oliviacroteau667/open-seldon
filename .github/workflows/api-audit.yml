@@ -86,7 +86,8 @@ jobs:
             echo "=== DISK USAGE ==="
             df -h /
             echo "=== RESTARTING DOWN CONTAINERS ==="
-            docker compose up -d
+            # The prod overlay is what publishes Caddy's 80/443; omitting it recreates Caddy with no host ports
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
             echo "=== POST-RESTART STATUS ==="
             docker compose ps
 

@@ -48,6 +48,14 @@ Always push to `master` — Vercel watches that branch.
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
 ```
 
+### Backend (production, on the Hetzner server at /root/open-seldon)
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+Always include `docker-compose.prod.yml` on the server. It is the only file that
+publishes Caddy's ports 80/443 — a plain `docker compose up -d` recreates Caddy
+with no host ports and takes the whole API offline (this happened 2026-10-19).
+
 ### Backend logs
 ```bash
 docker compose logs -f openseldon-api
