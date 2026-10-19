@@ -43,20 +43,38 @@ async def current_user(
     email = (claims.get("email") or "").strip().lower()
     if not email:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token has no email claim")
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """
-            INSERT INTO users (authentik_sub, email, name, last_seen_at)
-            VALUES ($1, $2, $3, NOW())
-            ON CONFLICT (authentik_sub) DO UPDATE
-                SET email = EXCLUDED.email,
-                    name = COALESCE(EXCLUDED.name, users.name),
-                    last_seen_at = NOW()
-            RETURNING id, authentik_sub, email, name, is_superuser, created_at
-            """,
-            claims["sub"],
-            email,
-            claims.get("name") or claims.get("preferred_username"),
+    sub = claims["sub"]
+    name = claims.get("name") or claims.get("preferred_username")
+    returning = "RETURNING id, authentik_sub, email, name, is_superuser, created_at"
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"""
+                UPDATE users
+                   SET email = $2, name = COALESCE($3, name), last_seen_at = NOW()
+                 WHERE authentik_sub = $1
+                {returning}
+                """,
+                sub, email, name,
+            )
+            if row is None:
+                # Unknown sub: new user, or an identity re-created in Authentik under an existing email
+                row = await conn.fetchrow(
+                    f"""
+                    INSERT INTO users (authentik_sub, email, name, last_seen_at)
+                    VALUES ($1, $2, $3, NOW())
+                    ON CONFLICT (email) DO UPDATE
+                        SET authentik_sub = EXCLUDED.authentik_sub,
+                            name = COALESCE(EXCLUDED.name, users.name),
+                            last_seen_at = NOW()
+                    {returning}
+                    """,
+                    sub, email, name,
+                )
+    except asyncpg.UniqueViolationError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "email is already linked to a different account",
         )
     user = dict(row)
     user["id"] = str(user["id"])
