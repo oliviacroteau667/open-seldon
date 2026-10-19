@@ -17,7 +17,8 @@ const MONO = "'Space Mono', monospace";
 const TAGLINE = "HUMANITARIAN OSINT, ON DEMAND.";
 const PITCH = "Open Seldon is a data hub for humanitarian organizations. Open source intelligence is a goldmine that most humanitarian organizations simply don't have the resources to utilize to their fullest potential. We fill that gap by aggregating open UN datasets, public social media channels, and mission-specific data, to deliver you the clearest picture possible, so your team can focus on life-saving work. We do our work in the open and publish our base code, so you can make Open Seldon yours.";
 const MISSION = "In crisis situations, humanitarian organizations rely on local, affected people for intelligence. Open Seldon leverages social media sentiment analysis of Telegram communities to democratize which voices are heard by transforming unstructured, multilingual public data into actionable humanitarian intelligence.";
-const SARAPIS_SHORT = "Sarapis is a New York-incorporated 501(c)(3) nonprofit. We believe the technology public-interest work depends on shouldn't be rented from vendors or locked inside someone else's cloud — it should belong to the people and organizations it serves. So we work in the open with free/libre/open-source tools, and everything we make goes back to the commons.";
+const OWNERSHIP = "Open Seldon is created and owned by Olivia Croteau, and developed with the support of the Sarapis Foundation. It is free and open source: the code is public, and you are welcome to run it, study it, and build on it.";
+const SARAPIS_SHORT ="Sarapis is a New York-incorporated 501(c)(3) nonprofit. We believe the technology public-interest work depends on shouldn't be rented from vendors or locked inside someone else's cloud — it should belong to the people and organizations it serves. So we work in the open with free/libre/open-source tools, and everything we make goes back to the commons.";
 const SARAPIS_LONG = "Since 2010, Sarapis has helped nonprofits, community groups, and public agencies build technology they can actually own — free to run, study, share, and improve. In practice that's three kinds of work: delivering complete open-source solutions, facilitating the coalitions civic technology takes to build, and stewarding the open-source platforms the public sector relies on. Our projects span open government, human services, emergency management, and the collaborative economy — in New York City and across the global open-source movement.";
 
 // ── Small pieces ───────────────────────────────────────────────────────────
@@ -253,14 +254,17 @@ export default function Landing() {
         <div className="lp-container">
           <div className="lp-grid-2" style={{ alignItems: "start" }}>
             <div>
-              <Eyebrow>WHO WE ARE</Eyebrow>
-              <H2>Made by the Sarapis Foundation</H2>
-              <Body>{SARAPIS_SHORT}</Body>
+              <Eyebrow>WHO&apos;S BEHIND IT</Eyebrow>
+              <H2>Built by Olivia Croteau, supported by the Sarapis Foundation</H2>
+              <Body>{OWNERSHIP}</Body>
               <div style={{ marginTop: 20 }}>
                 <SecondaryLink href={SARAPIS_URL} external>About Sarapis ↗</SecondaryLink>
               </div>
             </div>
-            <Body muted>{SARAPIS_LONG}</Body>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Body>{SARAPIS_SHORT}</Body>
+              <Body muted>{SARAPIS_LONG}</Body>
+            </div>
           </div>
         </div>
       </section>
@@ -274,7 +278,7 @@ export default function Landing() {
               <Eyebrow>GET YOUR OWN</Eyebrow>
               <H2>Make Open Seldon yours</H2>
               <p style={{ font: `400 15px/1.65 ${SANS}`, color: "var(--text-2)", maxWidth: 640, margin: "0 auto" }}>
-                Open Seldon is free and open source. Point it at the channels and datasets that matter to your mission, run it on your own infrastructure, or let us set it up with you.
+                Open Seldon is free and open source. Point it at the channels and datasets that matter to your mission, run it on your own infrastructure, or get in touch and we&apos;ll help you set it up.
               </p>
               <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap", marginTop: 26 }}>
                 <PrimaryLink href={CONTACT_MAILTO} external>Talk to us</PrimaryLink>
@@ -291,7 +295,7 @@ export default function Landing() {
         <div className="lp-container" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <BrandMark size={18} />
-            <span style={{ font: `400 11px ${MONO}`, color: "var(--text-3)" }}>© {new Date().getFullYear()} Sarapis Foundation · Open source</span>
+            <span style={{ font: `400 11px ${MONO}`, color: "var(--text-3)" }}>© {new Date().getFullYear()} Olivia Croteau · Supported by the Sarapis Foundation · Open source</span>
           </div>
           <nav aria-label="Footer" style={{ marginLeft: "auto", display: "flex", gap: 16, flexWrap: "wrap" }}>
             {[[APP_PATH, "Live map"], [REPO_URL, "GitHub"], [SARAPIS_URL, "Sarapis"], ["/design", "Design"]].map(([href, label]) => (

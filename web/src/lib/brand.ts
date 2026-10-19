@@ -85,7 +85,7 @@ interface BuildOptions { width?: number; text?: string; revealed?: boolean }
 function build(kind: Kind, o: BuildOptions): Built {
   const g = GEO[kind];
   const id = "os" + ++uid;
-  const text = o.text || "#EDEBFA";
+  const text = o.text || "var(--text, #EDEBFA)";
   const svg = el("svg", { viewBox: g.vb, fill: "none" });
   svg.style.cssText = "overflow:visible;display:block;" +
     (o.width ? `width:${o.width}px;height:${(o.width * g.h) / g.w}px` : "width:100%;height:auto");
@@ -231,7 +231,8 @@ export function launch(o: LaunchOptions = {}): LaunchHandle {
   const foot = root.querySelector("[data-os-foot]") as HTMLSpanElement | null;
   if (foot && o.footer) foot.textContent = o.footer;
 
-  const c = controller("lockup", center, { width, revealed: false });
+  // The overlay is always dark, so the wordmark keeps the light fill regardless of theme
+  const c = controller("lockup", center, { width, revealed: false, text: "#EDEBFA" });
 
   // Tagline row: caption + (in click mode) a minimalist arrow with a generous hit area
   const big = width > 300;
