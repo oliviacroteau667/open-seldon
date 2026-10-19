@@ -110,6 +110,8 @@ interface Props {
   highlightCities?: Set<string>;
   highlightRegions?: Set<string>;
   flyTo?: { longitude: number; latitude: number; zoom: number; key: number } | null;
+  autoRotate?: boolean; // slow idle spin (landing-page teaser); stops on first interaction
+  initialZoom?: number;
 }
 
 // Ray-casting point-in-polygon (handles Polygon and MultiPolygon)
@@ -242,7 +244,7 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, rightInset = 0, highlightCities, highlightRegions, flyTo }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, rightInset = 0, highlightCities, highlightRegions, flyTo, autoRotate = false, initialZoom }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isLight = useTheme().resolved === "light";
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
@@ -293,7 +295,37 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialViewState = useMemo(() => fitViewToMessages(messages), []);
   const mapRef = useRef<MapRef>(null);
-  const [zoom, setZoom] = useState<number>(initialViewState.zoom);
+  const [zoom, setZoom] = useState<number>(initialZoom ?? initialViewState.zoom);
+  const [mapLoaded, setMapLoaded] = useState(false);
+
+  // Idle spin for the teaser: ~2.5°/s, cancelled the moment the user grabs or scrolls the globe
+  useEffect(() => {
+    if (!autoRotate || !mapLoaded) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    let stopped = false;
+    let raf = 0;
+    let last = performance.now();
+    const stop = () => { stopped = true; };
+    map.on("mousedown", stop);
+    map.on("touchstart", stop);
+    map.on("wheel", stop);
+    const tick = (t: number) => {
+      if (stopped) return;
+      const dt = Math.min(t - last, 100);
+      last = t;
+      const c = map.getCenter();
+      map.jumpTo({ center: [c.lng + dt * 0.0025, c.lat] });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(raf);
+      map.off("mousedown", stop);
+      map.off("touchstart", stop);
+      map.off("wheel", stop);
+    };
+  }, [autoRotate, mapLoaded]);
 
   useEffect(() => {
     if (!flyTo) return;
@@ -502,14 +534,16 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
       {/* MapLibre globe basemap; deck.gl layers are interleaved into it via MapboxOverlay */}
       <Map
         ref={mapRef}
-        initialViewState={initialViewState}
+        initialViewState={initialZoom != null ? { ...initialViewState, zoom: initialZoom } : initialViewState}
         mapStyle={isLight ? BASEMAP_LIGHT : BASEMAP_DARK}
         projection={{ type: "globe" }}
         minZoom={0.4}
         maxZoom={14}
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         attributionControl={false}
+        scrollZoom={!autoRotate}
         onMove={(e) => setZoom(e.viewState.zoom)}
+        onLoad={() => setMapLoaded(true)}
       >
       <DeckGLOverlay
         interleaved={false}

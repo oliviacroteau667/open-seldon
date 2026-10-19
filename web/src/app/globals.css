@@ -98,6 +98,27 @@ html, body {
   overflow: hidden;
 }
 
+/* Scrolling pages (landing, design reference) — the dashboard keeps the fixed viewport */
+html.lp, html.lp body { height: auto; min-height: 100%; overflow: auto; }
+
+.lp-container { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+.lp-grid-2 { display: grid; gap: 20px; grid-template-columns: 1fr; }
+.lp-grid-3 { display: grid; gap: 16px; grid-template-columns: 1fr; }
+.lp-grid-4 { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+.lp-nav-links { display: none; }
+.lp-hero-title { font: 700 clamp(28px, 5vw, 46px)/1.12 "Instrument Sans", sans-serif; letter-spacing: -.02em; }
+.lp-section { padding: 56px 0; }
+@media (min-width: 720px) {
+  .lp-container { padding: 0 32px; }
+  .lp-grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .lp-grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .lp-nav-links { display: flex; }
+  .lp-section { padding: 80px 0; }
+}
+@media (min-width: 960px) {
+  .lp-grid-2 { grid-template-columns: 1.15fr .85fr; gap: 28px; }
+}
+
 /* Suppress MapLibre logo if needed */
 .maplibregl-ctrl-attrib { display: none !important; }
 
