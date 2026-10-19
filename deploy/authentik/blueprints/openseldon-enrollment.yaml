@@ -1,0 +1,115 @@
+version: 1
+metadata:
+  name: Open Seldon Enrollment Flow
+entries:
+  # --- Prompts ---
+  - model: authentik_stages_prompt.prompt
+    state: present
+    id: prompt-name
+    attrs:
+      name: openseldon-prompt-name
+      field_key: name
+      label: Your name
+      type: text
+      required: true
+      placeholder: Full name
+      order: 10
+
+  - model: authentik_stages_prompt.prompt
+    state: present
+    id: prompt-email
+    attrs:
+      name: openseldon-prompt-email
+      field_key: email
+      label: Email address
+      type: email
+      required: true
+      placeholder: you@example.com
+      order: 20
+
+  # --- Prompt stage (collect name + email) ---
+  - model: authentik_stages_prompt.promptstage
+    state: present
+    id: openseldon-enrollment-prompt
+    attrs:
+      name: openseldon-enrollment-prompt
+      fields:
+        - !KeyOf prompt-name
+        - !KeyOf prompt-email
+      validation_policies: []
+
+  # --- Write user (inactive until email confirmed) ---
+  - model: authentik_stages_user_write.userwritestage
+    state: present
+    id: openseldon-user-write
+    attrs:
+      name: openseldon-user-write
+      user_creation_mode: always_create
+      create_users_as_inactive: true
+      create_users_group: null
+      user_path_template: users
+
+  # --- Send confirmation email (activates user on success) ---
+  - model: authentik_stages_email.emailstage
+    state: present
+    id: openseldon-enrollment-email
+    attrs:
+      name: openseldon-enrollment-email
+      use_global_settings: true
+      activate_user_on_success: true
+      token_expiry: 72
+      subject: Confirm your Open Seldon account
+      template: email/account_confirmation.html
+
+  # --- Create session after confirmed ---
+  - model: authentik_stages_user_login.userloginstage
+    state: present
+    id: openseldon-enrollment-login
+    attrs:
+      name: openseldon-enrollment-login
+      session_duration: "days=30"
+      remember_me_offset: "days=0"
+
+  # --- Enrollment flow ---
+  - model: authentik_flows.flow
+    state: present
+    id: openseldon-enrollment-flow
+    attrs:
+      name: Open Seldon Enrollment
+      title: Create your Open Seldon account
+      slug: openseldon-enrollment
+      designation: enrollment
+      authentication: require_unauthenticated
+
+  # --- Bindings ---
+  - model: authentik_flows.flowstagebinding
+    state: present
+    id: bind-enrollment-prompt
+    attrs:
+      target: !KeyOf openseldon-enrollment-flow
+      stage: !KeyOf openseldon-enrollment-prompt
+      order: 10
+
+  - model: authentik_flows.flowstagebinding
+    state: present
+    id: bind-enrollment-write
+    attrs:
+      target: !KeyOf openseldon-enrollment-flow
+      stage: !KeyOf openseldon-user-write
+      order: 20
+
+  - model: authentik_flows.flowstagebinding
+    state: present
+    id: bind-enrollment-email
+    attrs:
+      target: !KeyOf openseldon-enrollment-flow
+      stage: !KeyOf openseldon-enrollment-email
+      order: 30
+
+  - model: authentik_flows.flowstagebinding
+    state: present
+    id: bind-enrollment-login
+    attrs:
+      target: !KeyOf openseldon-enrollment-flow
+      stage: !KeyOf openseldon-enrollment-login
+      order: 40

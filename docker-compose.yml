@@ -6,16 +6,92 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-openseldon}
       POSTGRES_USER: ${POSTGRES_USER:-openseldon_api}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      AUTHENTIK_POSTGRES_PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
     secrets:
       - postgres_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+      - ./scripts/init-authentik.sh:/docker-entrypoint-initdb.d/20-init-authentik.sh:ro
     logging:
       driver: json-file
       options:
         max-size: "50m"
         max-file: "3"
+
+  openseldon-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  openseldon-authentik-server:
+    image: ghcr.io/goauthentik/server:2026.8.3
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: openseldon-redis
+      AUTHENTIK_POSTGRESQL__HOST: openseldon-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
+      AUTHENTIK_EMAIL__HOST: ${AUTHENTIK_EMAIL_HOST}
+      AUTHENTIK_EMAIL__PORT: ${AUTHENTIK_EMAIL_PORT:-587}
+      AUTHENTIK_EMAIL__USERNAME: ${AUTHENTIK_EMAIL_USERNAME}
+      AUTHENTIK_EMAIL__PASSWORD: ${AUTHENTIK_EMAIL_PASSWORD}
+      AUTHENTIK_EMAIL__USE_TLS: ${AUTHENTIK_EMAIL_USE_TLS:-true}
+      AUTHENTIK_EMAIL__FROM: ${AUTHENTIK_EMAIL_FROM:-noreply@openseldon.org}
+      OPENSELDON_WEB_CLIENT_SECRET: ${OPENSELDON_WEB_CLIENT_SECRET}
+      OPENSELDON_WEB_REDIRECT_URIS: ${OPENSELDON_WEB_REDIRECT_URIS:-https://openseldon.org/api/auth/callback/authentik}
+    depends_on:
+      - openseldon-postgres
+      - openseldon-redis
+    volumes:
+      - authentik_media:/media
+      - ./deploy/authentik/blueprints:/blueprints/custom:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  openseldon-authentik-worker:
+    image: ghcr.io/goauthentik/server:2026.8.3
+    restart: unless-stopped
+    command: worker
+    user: root
+    environment:
+      AUTHENTIK_REDIS__HOST: openseldon-redis
+      AUTHENTIK_POSTGRESQL__HOST: openseldon-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_POSTGRES_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_POSTGRES_PASSWORD}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_EMAIL__HOST: ${AUTHENTIK_EMAIL_HOST}
+      AUTHENTIK_EMAIL__PORT: ${AUTHENTIK_EMAIL_PORT:-587}
+      AUTHENTIK_EMAIL__USERNAME: ${AUTHENTIK_EMAIL_USERNAME}
+      AUTHENTIK_EMAIL__PASSWORD: ${AUTHENTIK_EMAIL_PASSWORD}
+      AUTHENTIK_EMAIL__USE_TLS: ${AUTHENTIK_EMAIL_USE_TLS:-true}
+      AUTHENTIK_EMAIL__FROM: ${AUTHENTIK_EMAIL_FROM:-noreply@openseldon.org}
+    depends_on:
+      - openseldon-postgres
+      - openseldon-redis
+    volumes:
+      - authentik_media:/media
+      - ./deploy/authentik/blueprints:/blueprints/custom:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "5"
 
   openseldon-api:
     build: ./api
@@ -69,6 +145,8 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
+  authentik_media:
   media_data:
   session_data:
   caddy_data:

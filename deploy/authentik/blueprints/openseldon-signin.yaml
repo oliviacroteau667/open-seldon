@@ -1,0 +1,104 @@
+version: 1
+metadata:
+  name: Open Seldon Sign-in Flow
+entries:
+  # --- Email identification stage ---
+  - model: authentik_stages_identification.identificationstage
+    state: present
+    id: openseldon-identification
+    attrs:
+      name: openseldon-identification
+      user_fields:
+        - email
+      show_matched_user: false
+      show_source_labels: false
+      enrollment_flow: !Find [authentik_flows.flow, [slug, openseldon-enrollment]]
+      password_stage: null
+
+  # --- Email magic link stage ---
+  # Sends a one-time sign-in link; activates user on first successful click
+  - model: authentik_stages_email.emailstage
+    state: present
+    id: openseldon-email-login
+    attrs:
+      name: openseldon-email-login
+      use_global_settings: true
+      activate_user_on_success: false
+      token_expiry: 30
+      subject: Your Open Seldon sign-in link
+      template: email/login.html
+
+  # --- Create session ---
+  - model: authentik_stages_user_login.userloginstage
+    state: present
+    id: openseldon-signin-login
+    attrs:
+      name: openseldon-signin-login
+      session_duration: "days=30"
+      remember_me_offset: "days=0"
+
+  # --- Authentication flow ---
+  - model: authentik_flows.flow
+    state: present
+    id: openseldon-authentication-flow
+    attrs:
+      name: Open Seldon Authentication
+      title: Sign in to Open Seldon
+      slug: openseldon-authentication
+      designation: authentication
+      authentication: require_unauthenticated
+
+  # --- Bindings ---
+  - model: authentik_flows.flowstagebinding
+    state: present
+    id: bind-auth-identification
+    attrs:
+      target: !KeyOf openseldon-authentication-flow
+      stage: !KeyOf openseldon-identification
+      order: 10
+
+  - model: authentik_flows.flowstagebinding
+    state: present
+    id: bind-auth-email
+    attrs:
+      target: !KeyOf openseldon-authentication-flow
+      stage: !KeyOf openseldon-email-login
+      order: 20
+
+  - model: authentik_flows.flowstagebinding
+    state: present
+    id: bind-auth-login
+    attrs:
+      target: !KeyOf openseldon-authentication-flow
+      stage: !KeyOf openseldon-signin-login
+      order: 30
+
+  # --- OIDC Provider ---
+  - model: authentik_providers_oauth2.oauth2provider
+    state: present
+    id: openseldon-web-provider
+    attrs:
+      name: openseldon-web
+      client_type: confidential
+      client_id: openseldon-web
+      client_secret: ${OPENSELDON_WEB_CLIENT_SECRET}
+      redirect_uris: ${OPENSELDON_WEB_REDIRECT_URIS}
+      authorization_flow: !KeyOf openseldon-authentication-flow
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+      access_token_validity: hours=1
+      refresh_token_validity: days=30
+
+  # --- Application ---
+  - model: authentik_core.application
+    state: present
+    id: openseldon-web-app
+    attrs:
+      name: Open Seldon
+      slug: openseldon
+      provider: !KeyOf openseldon-web-provider
+      meta_launch_url: https://openseldon.org
+      meta_description: Conflict early-warning intelligence
+      open_in_new_tab: false

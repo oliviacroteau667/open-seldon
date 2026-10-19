@@ -1,3 +1,7 @@
 api.openseldon.org {
     reverse_proxy openseldon-api:8000
 }
+
+accounts.openseldon.org {
+    reverse_proxy openseldon-authentik-server:9000
+}
