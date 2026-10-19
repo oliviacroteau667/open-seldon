@@ -1,0 +1,280 @@
+version: 1
+metadata:
+  name: Open Seldon
+  labels:
+    blueprints.goauthentik.io/description: Open Seldon enrollment, magic-link sign-in, sign-out, OIDC client and branding
+entries:
+  # =====================================================================
+  # Enrollment (sign-up): name + email -> inactive user -> confirmation
+  # email activates the account -> session
+  # =====================================================================
+  - model: authentik_stages_prompt.prompt
+    state: present
+    id: prompt-name
+    identifiers:
+      name: openseldon-prompt-name
+    attrs:
+      field_key: name
+      label: Your name
+      type: text
+      required: true
+      placeholder: Full name
+      order: 10
+
+  - model: authentik_stages_prompt.prompt
+    state: present
+    id: prompt-email
+    identifiers:
+      name: openseldon-prompt-email
+    attrs:
+      field_key: email
+      label: Email address
+      type: email
+      required: true
+      placeholder: you@example.com
+      order: 20
+
+  - model: authentik_stages_prompt.promptstage
+    state: present
+    id: enrollment-prompt
+    identifiers:
+      name: openseldon-enrollment-prompt
+    attrs:
+      fields:
+        - !KeyOf prompt-name
+        - !KeyOf prompt-email
+
+  - model: authentik_stages_user_write.userwritestage
+    state: present
+    id: enrollment-write
+    identifiers:
+      name: openseldon-user-write
+    attrs:
+      user_creation_mode: always_create
+      create_users_as_inactive: true
+      user_path_template: users
+
+  - model: authentik_stages_email.emailstage
+    state: present
+    id: enrollment-email
+    identifiers:
+      name: openseldon-enrollment-email
+    attrs:
+      use_global_settings: true
+      activate_user_on_success: true
+      token_expiry: 4320
+      subject: Confirm your Open Seldon account
+      template: email/account_confirmation.html
+
+  - model: authentik_stages_user_login.userloginstage
+    state: present
+    id: user-login
+    identifiers:
+      name: openseldon-user-login
+    attrs:
+      session_duration: days=30
+
+  - model: authentik_flows.flow
+    state: present
+    id: enrollment-flow
+    identifiers:
+      slug: openseldon-enrollment
+    attrs:
+      name: Open Seldon Enrollment
+      title: Create your Open Seldon account
+      designation: enrollment
+      authentication: require_unauthenticated
+
+  - model: authentik_flows.flowstagebinding
+    state: present
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf enrollment-prompt
+    attrs:
+      order: 10
+  - model: authentik_flows.flowstagebinding
+    state: present
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf enrollment-write
+    attrs:
+      order: 20
+  - model: authentik_flows.flowstagebinding
+    state: present
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf enrollment-email
+    attrs:
+      order: 30
+  - model: authentik_flows.flowstagebinding
+    state: present
+    identifiers:
+      target: !KeyOf enrollment-flow
+      stage: !KeyOf user-login
+    attrs:
+      order: 40
+
+  # =====================================================================
+  # Sign-in: email -> magic link -> session (no passwords)
+  # =====================================================================
+  - model: authentik_stages_identification.identificationstage
+    state: present
+    id: signin-identification
+    identifiers:
+      name: openseldon-identification
+    attrs:
+      user_fields:
+        - email
+      show_matched_user: false
+      show_source_labels: false
+      enrollment_flow: !KeyOf enrollment-flow
+
+  - model: authentik_stages_email.emailstage
+    state: present
+    id: signin-email
+    identifiers:
+      name: openseldon-email-login
+    attrs:
+      use_global_settings: true
+      activate_user_on_success: false
+      token_expiry: 30
+      subject: Your Open Seldon sign-in link
+      # built-in template for now; swap for a custom magic-link template under /templates later
+      template: email/account_confirmation.html
+
+  - model: authentik_flows.flow
+    state: present
+    id: authentication-flow
+    identifiers:
+      slug: openseldon-authentication
+    attrs:
+      name: Open Seldon Authentication
+      title: Sign in to Open Seldon
+      designation: authentication
+      authentication: require_unauthenticated
+
+  - model: authentik_flows.flowstagebinding
+    state: present
+    identifiers:
+      target: !KeyOf authentication-flow
+      stage: !KeyOf signin-identification
+    attrs:
+      order: 10
+  - model: authentik_flows.flowstagebinding
+    state: present
+    identifiers:
+      target: !KeyOf authentication-flow
+      stage: !KeyOf signin-email
+    attrs:
+      order: 20
+  - model: authentik_flows.flowstagebinding
+    state: present
+    identifiers:
+      target: !KeyOf authentication-flow
+      stage: !KeyOf user-login
+    attrs:
+      order: 30
+
+  # =====================================================================
+  # Sign-out
+  # =====================================================================
+  - model: authentik_stages_user_logout.userlogoutstage
+    state: present
+    id: logout-stage
+    identifiers:
+      name: openseldon-logout
+
+  - model: authentik_flows.flow
+    state: present
+    id: invalidation-flow
+    identifiers:
+      slug: openseldon-invalidation
+    attrs:
+      name: Open Seldon Sign Out
+      title: Signing out…
+      designation: invalidation
+      authentication: require_authenticated
+
+  - model: authentik_flows.flowstagebinding
+    state: present
+    identifiers:
+      target: !KeyOf invalidation-flow
+      stage: !KeyOf logout-stage
+    attrs:
+      order: 10
+
+  # =====================================================================
+  # OIDC provider + application for the Next.js web app
+  # =====================================================================
+  - model: authentik_providers_oauth2.oauth2provider
+    state: present
+    id: web-provider
+    identifiers:
+      name: openseldon-web
+    attrs:
+      client_type: confidential
+      client_id: openseldon-web
+      client_secret: !Env OPENSELDON_WEB_CLIENT_SECRET
+      authorization_flow: !KeyOf authentication-flow
+      invalidation_flow: !KeyOf invalidation-flow
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
+      redirect_uris:
+        - matching_mode: strict
+          url: https://openseldon.org/api/auth/callback/authentik
+        - matching_mode: strict
+          url: http://localhost:3000/api/auth/callback/authentik
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, profile]]
+      access_token_validity: hours=1
+      refresh_token_validity: days=30
+
+  - model: authentik_core.application
+    state: present
+    identifiers:
+      slug: openseldon
+    attrs:
+      name: Open Seldon
+      provider: !KeyOf web-provider
+      meta_launch_url: https://openseldon.org
+      meta_description: Humanitarian OSINT, on demand
+      open_in_new_tab: false
+
+  # =====================================================================
+  # Brand: accounts.openseldon.org uses the flows above + dashboard theme
+  # =====================================================================
+  - model: authentik_brands.brand
+    state: present
+    identifiers:
+      domain: accounts.openseldon.org
+    attrs:
+      branding_title: Open Seldon
+      flow_authentication: !KeyOf authentication-flow
+      flow_invalidation: !KeyOf invalidation-flow
+      flow_user_settings: !Find [authentik_flows.flow, [slug, default-user-settings-flow]]
+      branding_custom_css: |
+        :root {
+          --os-bg: #0a0912;
+          --os-card: #161326;
+          --os-border: #2b2745;
+          --os-accent: #8b7cf6;
+          --os-accent-hover: #7c6ee0;
+          --os-text: #edebfa;
+          --os-text-muted: #9a93b8;
+          --os-input: #0f0e1a;
+        }
+        body, .pf-c-login, .pf-v5-c-login, .pf-c-page, .pf-v5-c-page { background: var(--os-bg) !important; }
+        .pf-c-login__main, .pf-v5-c-login__main {
+          background: var(--os-card) !important;
+          border: 1px solid var(--os-border) !important;
+          border-radius: 12px !important;
+          box-shadow: 0 20px 60px rgba(0,0,0,.5) !important;
+        }
+        .pf-c-title, .pf-v5-c-title, .pf-c-login__main-header-desc, .pf-v5-c-login__main-header-desc, label, p { color: var(--os-text) !important; }
+        .pf-c-form-control, .pf-v5-c-form-control { background: var(--os-input) !important; border-color: var(--os-border) !important; color: var(--os-text) !important; }
+        .pf-c-form-control:focus, .pf-v5-c-form-control:focus { border-color: var(--os-accent) !important; outline-color: var(--os-accent) !important; }
+        .pf-c-button.pf-m-primary, .pf-v5-c-button.pf-m-primary { background: var(--os-accent) !important; border-color: var(--os-accent) !important; color: #fff !important; }
+        .pf-c-button.pf-m-primary:hover, .pf-v5-c-button.pf-m-primary:hover { background: var(--os-accent-hover) !important; border-color: var(--os-accent-hover) !important; }
+        .pf-c-login__footer, .pf-v5-c-login__footer { color: var(--os-text-muted) !important; }
+        a { color: var(--os-accent) !important; }
