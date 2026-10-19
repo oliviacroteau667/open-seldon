@@ -113,6 +113,8 @@ services:
       TELEGRAM_PHONE: ${TELEGRAM_PHONE}
       API_KEY: ${API_KEY}
       SENTRY_DSN: ${SENTRY_DSN:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-https://accounts.openseldon.org/application/o/openseldon/}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-openseldon-web}
       MEDIA_DIR: /app/media
       TELEGRAM_SESSION: /app/session_data/session
     secrets:

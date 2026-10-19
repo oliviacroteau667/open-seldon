@@ -8,6 +8,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from modules.applog import configure_logging
 from modules.dbcreds import resolve_postgres_dsn
+from routers import auth as auth_router
 from routers import dashboard as dashboard_router
 from routers import chat as chat_router
 
@@ -46,6 +47,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(chat_router.router)
 

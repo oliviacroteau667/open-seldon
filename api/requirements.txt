@@ -8,3 +8,4 @@ openai
 fastembed
 telethon
 sentry-sdk[fastapi]
+PyJWT[crypto]
