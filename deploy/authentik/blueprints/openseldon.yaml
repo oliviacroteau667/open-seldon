@@ -34,6 +34,23 @@ entries:
       placeholder: you@example.com
       order: 20
 
+  # Accounts have no separate username: it is the (normalised) email address
+  - model: authentik_policies_expression.expressionpolicy
+    state: present
+    id: username-from-email
+    identifiers:
+      name: openseldon-username-from-email
+    attrs:
+      execution_logging: false
+      expression: |
+        email = (request.context["prompt_data"].get("email") or "").strip().lower()
+        if not email:
+            ak_message("Email address is required.")
+            return False
+        request.context["prompt_data"]["email"] = email
+        request.context["prompt_data"]["username"] = email
+        return True
+
   - model: authentik_stages_prompt.promptstage
     state: present
     id: enrollment-prompt
@@ -43,6 +60,8 @@ entries:
       fields:
         - !KeyOf prompt-name
         - !KeyOf prompt-email
+      validation_policies:
+        - !KeyOf username-from-email
 
   - model: authentik_stages_user_write.userwritestage
     state: present
