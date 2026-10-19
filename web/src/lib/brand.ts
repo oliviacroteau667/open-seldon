@@ -37,6 +37,7 @@ export interface LaunchOptions {
 export interface LaunchHandle {
   controller: BrandController;
   finish(): Promise<void>;
+  dispose(): void; // remove immediately without the outro (unmount / StrictMode remount)
 }
 
 const NS = "http://www.w3.org/2000/svg";
@@ -297,6 +298,11 @@ export function launch(o: LaunchOptions = {}): LaunchHandle {
 
   return {
     controller: c,
+    dispose() {
+      done = true;
+      c.destroy();
+      root.remove();
+    },
     async finish() {
       if (done) return;
       done = true;

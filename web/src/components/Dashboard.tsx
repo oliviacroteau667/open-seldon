@@ -43,20 +43,19 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Brand launch screen: once per browser session, dismissed when the first data load settles
+  // Brand launch screen on every entry to the app; it covers the initial data load and
+  // hands over on the arrow once that load settles
   const launchRef = useRef<LaunchHandle | null>(null);
   useLayoutEffect(() => {
-    try {
-      if (sessionStorage.getItem("os-launched")) return;
-      sessionStorage.setItem("os-launched", "1");
-    } catch { /* storage unavailable: still play once */ }
-    launchRef.current = launch({
+    const handle = launch({
       tagline: "HUMANITARIAN OSINT, ON DEMAND.",
       width: window.innerWidth > 700 ? 424 : 254,
       minDuration: 1800,
       dismiss: "click",
       enterLabel: "Open the dashboard",
     });
+    launchRef.current = handle;
+    return () => { handle.dispose(); launchRef.current = null; };
   }, []);
   useEffect(() => {
     if (!loading) launchRef.current?.finish();

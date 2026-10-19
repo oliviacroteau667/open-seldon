@@ -57,8 +57,6 @@ function HeroLockup() {
       await c.reveal();
       if (cancelled) return;
       c.pulse();
-      // The dashboard plays its own intro once per session; the hero already did the honours
-      try { sessionStorage.setItem("os-launched", "1"); } catch { /* storage unavailable */ }
     }, 1200);
     return () => { cancelled = true; clearTimeout(t); c.destroy(); };
   }, []);
