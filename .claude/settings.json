@@ -9,7 +9,8 @@
       "Bash(docker compose -f * logs *)",
       "Bash(docker compose -f * ps *)",
       "Bash(curl -s http://localhost:*)",
-      "Bash(curl -f http://localhost:*)"
+      "Bash(curl -f http://localhost:*)",
+      "Bash(ssh -i * root@2.29.57.27 *)"
     ]
   }
 }

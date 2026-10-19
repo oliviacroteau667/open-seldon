@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+    outputs:
+      issue_number: ${{ steps.issue.outputs.issue_number }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +29,7 @@ jobs:
         run: python scripts/api_audit.py
 
       - name: Open or update issue on failure
+        id: issue
         if: failure()
         uses: actions/github-script@v7
         with:
@@ -38,19 +41,69 @@ jobs:
               state: 'open',
               labels: 'audit-failure',
             });
+            let issue_number;
             if (issues.data.length > 0) {
+              issue_number = issues.data[0].number;
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: issues.data[0].number,
+                issue_number,
                 body: `Audit failed again on ${new Date().toISOString()}. Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               });
             } else {
-              await github.rest.issues.create({
+              const issue = await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title,
                 labels: ['audit-failure'],
                 body: `Automated API audit failed. Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               });
+              issue_number = issue.data.number;
             }
+            core.setOutput('issue_number', issue_number);
+
+  remediate:
+    needs: audit
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Collect diagnostics and restart containers
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script_stop: false
+          result_variables: DIAG
+          script: |
+            cd /root/open-seldon
+            echo "=== CONTAINER STATUS ==="
+            docker compose ps
+            echo "=== API LOGS (last 50 lines) ==="
+            docker compose logs --tail=50 openseldon-api
+            echo "=== DISK USAGE ==="
+            df -h /
+            echo "=== RESTARTING DOWN CONTAINERS ==="
+            docker compose up -d
+            echo "=== POST-RESTART STATUS ==="
+            docker compose ps
+
+      - name: Post diagnostics to issue
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          DIAG: ${{ env.DIAG }}
+          ISSUE_NUMBER: ${{ needs.audit.outputs.issue_number }}
+        with:
+          script: |
+            const issue_number = parseInt(process.env.ISSUE_NUMBER);
+            if (!issue_number) return;
+            const diag = process.env.DIAG || '(no output captured)';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body: `## Auto-remediation ran\n\n\`\`\`\n${diag.slice(0, 60000)}\n\`\`\`\n\nContainers restarted if any were down. Re-audit will run tomorrow or trigger manually.`,
+            });
