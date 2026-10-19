@@ -128,8 +128,12 @@ export default function Landing() {
 
   return (
     <div style={{ position: "relative", isolation: "isolate", background: "var(--bg)", color: "var(--text)", minHeight: "100vh" }}>
-      {/* Fixed grid: stays put while the page content scrolls over it */}
-      <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none", backgroundImage: GRID }} />
+      {/* Fixed backdrop: colour orbs + grid stay put while the page content scrolls over them */}
+      <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "12%", top: "4%", width: "52vmin", height: "52vmin", borderRadius: "50%", background: "var(--accent)", filter: "blur(16vmin)", opacity: .32 }} />
+        <div style={{ position: "absolute", left: "60%", top: "42%", width: "40vmin", height: "40vmin", borderRadius: "50%", background: "var(--lime)", filter: "blur(16vmin)", opacity: .18 }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: GRID }} />
+      </div>
 
       {/* Nav */}
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "var(--panel)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--border)" }}>
@@ -159,11 +163,7 @@ export default function Landing() {
       </header>
 
       {/* Hero */}
-      <section style={{ position: "relative", overflow: "hidden" }}>
-        <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          <div style={{ position: "absolute", left: "18%", top: "-10%", width: "44vmin", height: "44vmin", borderRadius: "50%", background: "var(--accent)", filter: "blur(13vmin)", opacity: .35 }} />
-          <div style={{ position: "absolute", left: "62%", top: "35%", width: "32vmin", height: "32vmin", borderRadius: "50%", background: "var(--lime)", filter: "blur(13vmin)", opacity: .2 }} />
-        </div>
+      <section style={{ position: "relative" }}>
         <div className="lp-container" style={{ position: "relative", padding: "72px 16px 56px", textAlign: "center" }}>
           <HeroLockup />
           <div style={{ font: `400 clamp(11px, 1.6vw, 13px) ${MONO}`, letterSpacing: ".15em", color: "var(--text-3)", marginTop: 22 }}>{TAGLINE}</div>
