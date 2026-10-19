@@ -62,7 +62,7 @@ entries:
     attrs:
       use_global_settings: true
       activate_user_on_success: true
-      token_expiry: 4320
+      token_expiry: days=3
       subject: Confirm your Open Seldon account
       template: email/account_confirmation.html
 
@@ -137,7 +137,7 @@ entries:
     attrs:
       use_global_settings: true
       activate_user_on_success: false
-      token_expiry: 30
+      token_expiry: minutes=30
       subject: Your Open Seldon sign-in link
       # built-in template for now; swap for a custom magic-link template under /templates later
       template: email/account_confirmation.html

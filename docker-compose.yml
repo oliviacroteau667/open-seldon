@@ -55,7 +55,8 @@ services:
       - openseldon-redis
     volumes:
       - authentik_media:/media
-      - ./deploy/authentik/blueprints:/blueprints/custom:ro
+      # Mount the parent dir: git recreates blueprints/ when all its files change, which orphans a bind mount of it
+      - ./deploy/authentik:/blueprints/custom:ro
     logging:
       driver: json-file
       options:
@@ -80,12 +81,14 @@ services:
       AUTHENTIK_EMAIL__PASSWORD: ${AUTHENTIK_EMAIL_PASSWORD}
       AUTHENTIK_EMAIL__USE_TLS: ${AUTHENTIK_EMAIL_USE_TLS:-true}
       AUTHENTIK_EMAIL__FROM: ${AUTHENTIK_EMAIL_FROM:-noreply@openseldon.org}
+      # The worker is what applies blueprints, so !Env lookups must resolve here too
+      OPENSELDON_WEB_CLIENT_SECRET: ${OPENSELDON_WEB_CLIENT_SECRET}
     depends_on:
       - openseldon-postgres
       - openseldon-redis
     volumes:
       - authentik_media:/media
-      - ./deploy/authentik/blueprints:/blueprints/custom:ro
+      - ./deploy/authentik:/blueprints/custom:ro
     logging:
       driver: json-file
       options:
