@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push origin HEAD:master)",
+      "Bash(git push origin main:master)",
+      "Bash(git push origin HEAD:master *)",
+      "Bash(docker compose logs *)",
+      "Bash(docker compose ps *)",
+      "Bash(docker compose -f * logs *)",
+      "Bash(docker compose -f * ps *)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(curl -f http://localhost:*)"
+    ]
+  }
+}
