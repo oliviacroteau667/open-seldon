@@ -50,7 +50,6 @@ services:
       AUTHENTIK_EMAIL__USE_TLS: ${AUTHENTIK_EMAIL_USE_TLS:-true}
       AUTHENTIK_EMAIL__FROM: ${AUTHENTIK_EMAIL_FROM:-noreply@openseldon.org}
       OPENSELDON_WEB_CLIENT_SECRET: ${OPENSELDON_WEB_CLIENT_SECRET}
-      OPENSELDON_WEB_REDIRECT_URIS: ${OPENSELDON_WEB_REDIRECT_URIS:-https://openseldon.org/api/auth/callback/authentik}
     depends_on:
       - openseldon-postgres
       - openseldon-redis

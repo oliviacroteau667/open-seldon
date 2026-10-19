@@ -26,7 +26,8 @@ entries:
       activate_user_on_success: false
       token_expiry: 30
       subject: Your Open Seldon sign-in link
-      template: email/login.html
+      # built-in template for now; swap for a custom magic-link template under /templates later
+      template: email/account_confirmation.html
 
   # --- Create session ---
   - model: authentik_stages_user_login.userloginstage
@@ -81,8 +82,12 @@ entries:
       name: openseldon-web
       client_type: confidential
       client_id: openseldon-web
-      client_secret: ${OPENSELDON_WEB_CLIENT_SECRET}
-      redirect_uris: ${OPENSELDON_WEB_REDIRECT_URIS}
+      client_secret: !Env OPENSELDON_WEB_CLIENT_SECRET
+      redirect_uris:
+        - matching_mode: strict
+          url: https://openseldon.org/api/auth/callback/authentik
+        - matching_mode: strict
+          url: http://localhost:3000/api/auth/callback/authentik
       authorization_flow: !KeyOf openseldon-authentication-flow
       property_mappings:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
