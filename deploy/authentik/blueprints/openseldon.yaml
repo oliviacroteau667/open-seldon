@@ -256,6 +256,7 @@ entries:
 
   - model: authentik_core.application
     state: present
+    id: web-app
     identifiers:
       slug: openseldon
     attrs:
@@ -277,6 +278,8 @@ entries:
       flow_authentication: !KeyOf authentication-flow
       flow_invalidation: !KeyOf invalidation-flow
       flow_user_settings: !Find [authentik_flows.flow, [slug, default-user-settings-flow]]
+      # Users are "external" (app-only) and cannot use Authentik's own portal, so land them in the app
+      default_application: !KeyOf web-app
       branding_custom_css: |
         :root {
           --os-bg: #0a0912;
