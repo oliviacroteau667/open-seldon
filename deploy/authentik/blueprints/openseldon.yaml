@@ -234,6 +234,11 @@ entries:
       client_type: confidential
       client_id: openseldon-web
       client_secret: !Env OPENSELDON_WEB_CLIENT_SECRET
+      # client_credentials lets service accounts mint tokens for API integration tests
+      grant_types:
+        - authorization_code
+        - refresh_token
+        - client_credentials
       authorization_flow: !KeyOf authentication-flow
       invalidation_flow: !KeyOf invalidation-flow
       signing_key: !Find [authentik_crypto.certificatekeypair, [name, authentik Self-signed Certificate]]
