@@ -1,0 +1,24 @@
+# Mailpit: local SMTP sink with a web UI, for testing Authentik's magic-link
+# and confirmation emails without a real provider.
+#
+# Usage (server or local):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.mailpit.yml up -d openseldon-mailpit
+# then point Authentik at it in .env:
+#   AUTHENTIK_EMAIL_HOST=openseldon-mailpit  AUTHENTIK_EMAIL_PORT=1025  AUTHENTIK_EMAIL_USE_TLS=false
+#   AUTHENTIK_EMAIL_USERNAME=  AUTHENTIK_EMAIL_PASSWORD=
+# and recreate the two authentik services. The UI binds to 127.0.0.1 only;
+# on the server reach it with: ssh -L 8025:127.0.0.1:8025 root@<host>
+
+services:
+  openseldon-mailpit:
+    image: axllent/mailpit:v1.21
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
