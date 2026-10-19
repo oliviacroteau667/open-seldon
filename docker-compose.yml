@@ -133,7 +133,8 @@ services:
     depends_on:
       - openseldon-api
     volumes:
-      - ./nginx/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Mount the directory, not the file: git replaces files by inode and a file bind-mount keeps serving the old one
+      - ./nginx:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     logging:
