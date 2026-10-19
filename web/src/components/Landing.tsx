@@ -13,6 +13,7 @@ const CONTACT_MAILTO = "mailto:olivia@sarapis.org?subject=" + encodeURIComponent
 
 const SANS = "'Instrument Sans', sans-serif";
 const MONO = "'Space Mono', monospace";
+const GRID = "repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 40px)";
 
 const TAGLINE = "HUMANITARIAN OSINT, ON DEMAND.";
 const PITCH = "Open Seldon is a data hub for humanitarian organizations. Open source intelligence is a goldmine that most humanitarian organizations simply don't have the resources to utilize to their fullest potential. We fill that gap by aggregating open UN datasets, public social media channels, and mission-specific data, to deliver you the clearest picture possible, so your team can focus on life-saving work. We do our work in the open and publish our base code, so you can make Open Seldon yours.";
@@ -126,7 +127,10 @@ export default function Landing() {
   useScrollingPage();
 
   return (
-    <div style={{ background: "var(--bg)", color: "var(--text)", minHeight: "100vh" }}>
+    <div style={{ position: "relative", isolation: "isolate", background: "var(--bg)", color: "var(--text)", minHeight: "100vh" }}>
+      {/* Fixed grid: stays put while the page content scrolls over it */}
+      <div aria-hidden="true" style={{ position: "fixed", inset: 0, zIndex: -1, pointerEvents: "none", backgroundImage: GRID }} />
+
       {/* Nav */}
       <header style={{ position: "sticky", top: 0, zIndex: 20, background: "var(--panel)", backdropFilter: "blur(20px)", borderBottom: "1px solid var(--border)" }}>
         <div className="lp-container" style={{ height: 56, display: "flex", alignItems: "center", gap: 16 }}>
@@ -159,7 +163,6 @@ export default function Landing() {
         <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
           <div style={{ position: "absolute", left: "18%", top: "-10%", width: "44vmin", height: "44vmin", borderRadius: "50%", background: "var(--accent)", filter: "blur(13vmin)", opacity: .35 }} />
           <div style={{ position: "absolute", left: "62%", top: "35%", width: "32vmin", height: "32vmin", borderRadius: "50%", background: "var(--lime)", filter: "blur(13vmin)", opacity: .2 }} />
-          <div style={{ position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(0deg, var(--grid-line) 0 1px, transparent 1px 40px), repeating-linear-gradient(90deg, var(--grid-line) 0 1px, transparent 1px 40px)" }} />
         </div>
         <div className="lp-container" style={{ position: "relative", padding: "72px 16px 56px", textAlign: "center" }}>
           <HeroLockup />
