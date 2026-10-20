@@ -278,6 +278,8 @@ entries:
       domain: accounts.openseldon.org
     attrs:
       branding_title: Open Seldon
+      branding_logo: https://www.openseldon.org/brand-lockup.png
+      branding_favicon: https://www.openseldon.org/favicon-mark-32.png
       flow_authentication: !KeyOf authentication-flow
       flow_invalidation: !KeyOf invalidation-flow
       flow_user_settings: !Find [authentik_flows.flow, [slug, default-user-settings-flow]]
@@ -306,5 +308,6 @@ entries:
         .pf-c-form-control:focus, .pf-v5-c-form-control:focus { border-color: var(--os-accent) !important; outline-color: var(--os-accent) !important; }
         .pf-c-button.pf-m-primary, .pf-v5-c-button.pf-m-primary { background: var(--os-accent) !important; border-color: var(--os-accent) !important; color: #fff !important; }
         .pf-c-button.pf-m-primary:hover, .pf-v5-c-button.pf-m-primary:hover { background: var(--os-accent-hover) !important; border-color: var(--os-accent-hover) !important; }
-        .pf-c-login__footer, .pf-v5-c-login__footer { color: var(--os-text-muted) !important; }
+        .pf-c-login__footer, .pf-v5-c-login__footer { display: none !important; }
+        .pf-c-login__main-header .pf-c-brand, .pf-v5-c-login__main-header .pf-v5-c-brand, .pf-c-brand, .pf-v5-c-brand { max-height: 56px !important; width: auto !important; margin: 8px auto 4px !important; }
         a { color: var(--os-accent) !important; }
