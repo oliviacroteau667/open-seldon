@@ -88,7 +88,10 @@ async def run_source(pool: asyncpg.Pool, http: Http, source: asyncpg.Record, sin
     if cls is None:
         result["error"] = "no connector implemented"
         return result
-    connector = cls(http, dict(source["config"] or {}))
+    cfg = source["config"]
+    if isinstance(cfg, str):  # asyncpg hands JSONB back as text unless a codec is registered
+        cfg = json.loads(cfg)
+    connector = cls(http, dict(cfg or {}))
     since = since_override or source["last_success_at"]
     countries = list(source["countries"]) if source["countries"] else None
     started = datetime.now(timezone.utc)
