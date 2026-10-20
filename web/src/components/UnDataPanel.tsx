@@ -52,7 +52,7 @@ function buildCards(iso3: string, s: LayersSummary) {
   if (conflict.length) {
     const total = conflict.reduce((a, i) => a + (i.value ?? 0), 0);
     const fat = conflict.reduce((a, i) => a + (Number(i.extra?.fatalities) || 0), 0);
-    cards.push({ value: num(total), label: `Conflict events · ${fat ? `${num(fat)} fatalities` : period(conflict[0])}`, source: `ACLED via HDX HAPI · ${period(conflict[0])} · accessed ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`, map: { slug: "hapi", indicator: "conflict_events" } });
+    cards.push({ value: num(total), label: `Conflict events · ${fat ? `${num(fat)} fatalities` : period(conflict[0])}`, source: `ACLED via HDX HAPI · ${period(conflict[0])} · accessed ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}` }); // HAPI conflict rows are national for these countries, so no by-area option
   }
 
   const pres = (s.operational_presence ?? []).find((r) => r.iso3 === iso3);
