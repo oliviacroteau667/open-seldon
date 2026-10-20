@@ -1,6 +1,6 @@
 import { auth, authConfigured } from "@/auth";
 
-const API = process.env.API_INTERNAL_URL ?? "http://openseldon-api:8000";
+const API = (process.env.API_INTERNAL_URL ?? "http://openseldon-api:8000").trim().replace(/\/+$/, "");
 
 // Forwards the signed-in user's access token to the FastAPI /me endpoint
 export async function GET() {
