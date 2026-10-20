@@ -103,6 +103,28 @@ def test_app_identifier_is_base64_of_app_and_email(monkeypatch):
     assert base64.b64decode(app_identifier()).decode() == "open-seldon:team@example.org"
 
 
+def test_idmc_row_parses_with_figure_and_coordinates():
+    from pipeline.sources.idmc_hdx import parse_row
+    ev = parse_row({"id": "123456", "country": "Ukraine", "iso3": "UKR", "latitude": "49.99", "longitude": "36.23",
+                    "displacement_type": "Conflict", "figure": "1500", "displacement_date": "2026-10-18",
+                    "displacement_start_date": "2026-10-17", "displacement_end_date": "2026-10-18",
+                    "event_name": "Kharkiv: Shelling", "category": "Conflict", "subcategory": "Armed conflict",
+                    "sources": "OCHA", "source_url": "https://example.org/report", "locations_name": "Kharkiv",
+                    "locations_accuracy": "Point", "created_at": "2026-10-19T08:00:00"})
+    assert ev is not None
+    assert ev.source_record_id == "123456" and ev.iso3 == "UKR"
+    assert ev.title == "Kharkiv: Shelling: 1,500 displaced"
+    assert (ev.lat, ev.lon) == (49.99, 36.23) and ev.metrics["figure"] == 1500.0
+    assert ev.category == "safety" and ev.event_type == "Conflict"
+    assert ev.reference_period_start == date(2026, 10, 17)
+
+
+def test_idmc_row_without_id_or_date_is_skipped():
+    from pipeline.sources.idmc_hdx import parse_row
+    assert parse_row({"id": "", "displacement_date": "2026-10-18"}) is None
+    assert parse_row({"id": "1", "displacement_date": ""}) is None
+
+
 def test_parse_dt_handles_naive_and_zulu():
     assert parse_dt("2026-10-20T06:12:00Z") == datetime(2026, 10, 20, 6, 12, tzinfo=timezone.utc)
     assert parse_dt("2026-10-20T06:12:00").tzinfo is not None
