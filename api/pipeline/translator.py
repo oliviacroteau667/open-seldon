@@ -49,7 +49,7 @@ async def translate_batch(batch_size: int = 50) -> int:
         try:
             response = await client.chat.completions.create(
                 model=PIPELINE_MODEL,
-                max_tokens=1024,
+                max_tokens=4096,  # long posts overflowed 1024 and came back as truncated, unparseable JSON
                 temperature=0,
                 response_format={"type": "json_object"},
                 messages=[
