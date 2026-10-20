@@ -48,8 +48,8 @@ The API will be at `http://localhost:8000`, docs at `http://localhost:8000/docs`
 # Scrape a Telegram channel
 docker compose exec api python -m pipeline.scraper --channel polska_grupa_informacyjna
 
-# Process scraped messages (translate, categorize, geocode, embed)
-docker compose exec api python -m pipeline.processor --all
+# Scrape every enabled channel and process everything waiting (what the daily job runs)
+docker compose exec api python -m pipeline.run_daily
 ```
 
 ## Project structure
