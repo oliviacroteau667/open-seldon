@@ -16,9 +16,12 @@ function num(v: number | null): string {
   return v.toLocaleString("en-GB");
 }
 
+// Period dates are plain ISO days; format them in UTC or "2026-09-01" shows as August in the Americas
+const fmtMonth = (d: string) => new Date(d).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+const fmtYear = (d: string) => String(new Date(d).getUTCFullYear());
+
 function period(i: SummaryIndicator): string {
-  const f = (d: string) => new Date(d).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-  return i.period_end ? `${f(i.period_start)} – ${f(i.period_end)}` : f(i.period_start);
+  return i.period_end ? `${fmtMonth(i.period_start)} – ${fmtMonth(i.period_end)}` : fmtMonth(i.period_start);
 }
 
 // Headline cards from HAPI indicators at admin0, per country, until boundaries make choropleths possible
@@ -33,7 +36,7 @@ function buildCards(iso3: string, s: LayersSummary) {
 
   const ref = (s.refugees ?? []).find((r) => r.iso3 === iso3);
   if (ref) {
-    const year = new Date(ref.period_start).getFullYear();
+    const year = fmtYear(ref.period_start);
     if (iso3 === "UKR") {
       if (ref.others_of_concern != null) cards.push({ value: num(ref.others_of_concern), label: "Others of concern to UNHCR (in country)", source: `UNHCR via HDX HAPI · ${year}` });
     } else {
@@ -53,10 +56,10 @@ function buildCards(iso3: string, s: LayersSummary) {
   }
 
   const pres = (s.operational_presence ?? []).find((r) => r.iso3 === iso3);
-  if (pres) cards.push({ value: num(pres.orgs), label: `Organisations present (3W) · ${pres.areas} areas`, source: `OCHA 3W via HDX HAPI · ${new Date(pres.period_start).getFullYear()}` });
+  if (pres) cards.push({ value: num(pres.orgs), label: `Organisations present (3W) · ${pres.areas} areas`, source: `OCHA 3W via HDX HAPI · ${fmtYear(pres.period_start)}` });
 
   // Insecurity Insight monthly national counts (coordinates are censored for Ukraine, so counts not points)
-  const month = (i: SummaryIndicator) => new Date(i.period_start).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  const month = (i: SummaryIndicator) => fmtMonth(i.period_start);
   const health = by("ii_health");
   const II = "Insecurity Insight via HDX · CC BY-SA";
   if (health.length) cards.push({ value: num(health[0].value), label: `Attacks on health care · ${month(health[0])}${health[0].extra?.killed ? ` · ${health[0].extra.killed} killed` : ""}`, source: II, map: { slug: "insecurity_insight", indicator: "ii_health" } });

@@ -145,9 +145,9 @@ function areaFeatures(areas: LayerArea[]): { fc: FeatureCollection<Polygon | Mul
   for (const { area, value } of Object.values(byPcode)) {
     if (!area.geometry) { missing++; continue; }
     max = Math.max(max, value);
-    features.push({ type: "Feature", geometry: area.geometry as Polygon | MultiPolygon, properties: { pcode: area.pcode, name: area.admin_name ?? area.area_name ?? area.pcode, value, period: area.period_start } });
+    features.push({ type: "Feature", geometry: area.geometry as Polygon | MultiPolygon, properties: { pcode: area.pcode, name: area.admin_name ?? area.area_name ?? area.pcode, value, reported: area.period_start != null } });
   }
-  const period = areas.length ? areas.reduce((m, a) => (a.period_start > m ? a.period_start : m), areas[0].period_start) : null;
+  const period = areas.reduce<string | null>((m, a) => (a.period_start && (!m || a.period_start > m) ? a.period_start : m), null);
   return { fc: { type: "FeatureCollection", features }, max, period, missing };
 }
 
@@ -587,7 +587,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
   }, [visibleLayers, isLight]);
 
   // Admin1 choropleth (UN data card → COD-AB boundaries); clicking an area shows its value in the legend
-  const [pickedArea, setPickedArea] = useState<{ name: string; value: number } | null>(null);
+  const [pickedArea, setPickedArea] = useState<{ name: string; value: number; reported: boolean } | null>(null);
   useEffect(() => setPickedArea(null), [areaLayer?.choice]);
   const areaShape = useMemo(() => (areaLayer ? areaFeatures(areaLayer.areas) : null), [areaLayer]);
   const choroplethLayer = useMemo(() => {
@@ -647,7 +647,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         onClick={(info) => {
           if (info.layer?.id === "choropleth") {
             const p = (info.object as Feature).properties ?? {};
-            setPickedArea({ name: String(p.name), value: Number(p.value) });
+            setPickedArea({ name: String(p.name), value: Number(p.value), reported: Boolean(p.reported) });
           } else if (info.layer?.id?.startsWith("ext-")) {
             const slug = info.layer.id.slice(4);
             const vl = visibleLayers.find((v) => v.layer.slug === slug);
@@ -723,7 +723,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
             <span style={{ color: "var(--text)", textTransform: "uppercase", lineHeight: 1.4, flex: 1 }}>{areaLayer.choice.label} · BY AREA</span>
             {onClearAreaLayer && <button onClick={onClearAreaLayer} aria-label="Remove choropleth" style={{ background: "none", border: 0, color: "var(--text-3)", cursor: "pointer", font: "400 14px 'Instrument Sans', sans-serif", lineHeight: 1, padding: 0 }}>×</button>}
           </div>
-          {areaShape.period && <span>{new Date(areaShape.period).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</span>}
+          {areaShape.period && <span>{new Date(areaShape.period).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" })}</span>}
           {areaShape.fc.features.length === 0 ? (
             <span style={{ color: "var(--warn)" }}>{areaLayer.areas.length ? "Boundaries not loaded yet" : "No area values"}</span>
           ) : (
@@ -738,7 +738,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
                 <span>{Math.round(areaShape.max).toLocaleString("en-GB")}</span>
               </div>
               <span style={{ color: pickedArea ? "var(--text)" : "var(--text-4)", lineHeight: 1.4 }}>
-                {pickedArea ? `${pickedArea.name}: ${Math.round(pickedArea.value).toLocaleString("en-GB")}` : "Click an area for its value"}
+                {pickedArea ? `${pickedArea.name}: ${pickedArea.reported ? Math.round(pickedArea.value).toLocaleString("en-GB") : "none reported"}` : "Click an area for its value"}
               </span>
               {areaShape.missing > 0 && <span style={{ color: "var(--text-4)" }}>{areaShape.missing} areas without boundaries</span>}
             </>

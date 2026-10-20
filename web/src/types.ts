@@ -73,7 +73,7 @@ export interface LayerArea {
   admin_level: number;
   area_name: string | null;
   admin_name: string | null;
-  period_start: string;
+  period_start: string | null; // null when the boundary has no value at the response's period
   period_end: string | null;
   value: number | null;
   value_text: string | null;
@@ -87,6 +87,7 @@ export interface LayerArea {
 export interface LayerAreasResponse {
   layer: Pick<Layer, "slug" | "name" | "attribution_text" | "licence_id" | "last_success_at">;
   indicator: string;
+  period: string | null; // the single period every area is reported at (boundary-driven responses)
   areas: LayerArea[];
 }
 

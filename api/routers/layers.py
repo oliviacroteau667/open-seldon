@@ -155,28 +155,54 @@ async def layer_areas(
     admin_level: int | None = None,
     pool: asyncpg.Pool = Depends(_get_pool),
 ):
-    clauses = ["a.source_slug = $1", "a.indicator = $2"]
-    params: list = [slug, indicator]
-    if iso3:
-        params.append(iso3.upper()); clauses.append(f"a.iso3 = ${len(params)}")
-    if admin_level is not None:
-        params.append(admin_level); clauses.append(f"a.admin_level = ${len(params)}")
-    if period != "latest":
-        params.append(datetime.fromisoformat(period).date()); clauses.append(f"a.period_start = ${len(params)}")
-    where = " AND ".join(clauses)
+    """Area values for one indicator.
+
+    With iso3 + admin_level the response is boundary-driven: every COD-AB area of that country and
+    level appears, with its value at ONE period (the latest reported for the indicator, or `period`),
+    and null where nothing was reported — so a choropleth never mixes months. Without them it falls
+    back to the latest row per (pcode, extra_key).
+    """
     async with pool.acquire() as conn:
         source = await conn.fetchrow("SELECT slug, name, attribution_text, licence_id, last_success_at FROM sources WHERE slug = $1 AND enabled", slug)
         if not source:
             raise HTTPException(404, "unknown layer")
+        if iso3 and admin_level is not None:
+            code = iso3.upper()
+            if period == "latest":
+                at = await conn.fetchval(
+                    "SELECT MAX(period_start) FROM area_indicators WHERE source_slug = $1 AND indicator = $2 AND iso3 = $3 AND admin_level = $4",
+                    slug, indicator, code, admin_level)
+            else:
+                at = datetime.fromisoformat(period).date()
+            rows = await conn.fetch(
+                """
+                SELECT m.pcode, m.iso3, m.admin_level, m.name AS admin_name, m.centroid_lat, m.centroid_lon, m.geometry,
+                       a.area_name, a.period_start, a.period_end, a.value, a.value_text, a.extra, COALESCE(a.extra_key, '') AS extra_key
+                FROM admin_areas m
+                LEFT JOIN area_indicators a
+                  ON a.pcode = m.pcode AND a.source_slug = $1 AND a.indicator = $2 AND a.period_start = $5
+                WHERE m.iso3 = $3 AND m.admin_level = $4
+                ORDER BY m.pcode, a.extra_key
+                """,
+                slug, indicator, code, admin_level, at,
+            )
+            return {"layer": _row(source), "indicator": indicator, "period": at.isoformat() if at else None, "areas": [_row(r) for r in rows]}
+
+        clauses = ["a.source_slug = $1", "a.indicator = $2"]
+        params: list = [slug, indicator]
+        if iso3:
+            params.append(iso3.upper()); clauses.append(f"a.iso3 = ${len(params)}")
+        if period != "latest":
+            params.append(datetime.fromisoformat(period).date()); clauses.append(f"a.period_start = ${len(params)}")
         rows = await conn.fetch(
             f"""
             SELECT DISTINCT ON (a.pcode, a.extra_key)
                    a.pcode, a.iso3, a.admin_level, a.area_name, a.period_start, a.period_end, a.value, a.value_text, a.extra, a.extra_key,
                    m.name AS admin_name, m.centroid_lat, m.centroid_lon, m.geometry
             FROM area_indicators a LEFT JOIN admin_areas m ON m.pcode = a.pcode
-            WHERE {where}
+            WHERE {' AND '.join(clauses)}
             ORDER BY a.pcode, a.extra_key, a.period_start DESC
             """,
             *params,
         )
-    return {"layer": _row(source), "indicator": indicator, "areas": [_row(r) for r in rows]}
+    return {"layer": _row(source), "indicator": indicator, "period": None, "areas": [_row(r) for r in rows]}
