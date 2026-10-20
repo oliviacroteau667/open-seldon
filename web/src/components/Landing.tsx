@@ -121,7 +121,8 @@ function Card({ icon, title, children }: { icon?: React.ReactNode; title: string
 
 // ── Page ───────────────────────────────────────────────────────────────────
 
-export default function Landing() {
+// authSlot is rendered by the server (it needs the session); Landing itself is a client component
+export default function Landing({ authSlot }: { authSlot?: React.ReactNode }) {
   useScrollingPage();
 
   return (
@@ -152,10 +153,7 @@ export default function Landing() {
           </nav>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
             <ThemeToggle />
-            {/* Sign-in placeholder: auth is built separately; points at the app for now */}
-            <Link href={APP_PATH} title="Sign-in coming soon" style={{ font: `500 13px ${SANS}`, color: "var(--text)", textDecoration: "none", padding: "7px 12px", border: "1px solid var(--line)", borderRadius: 6 }}>
-              Sign in
-            </Link>
+            {authSlot}
           </div>
         </div>
       </header>

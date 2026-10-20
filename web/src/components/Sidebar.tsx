@@ -5,6 +5,7 @@ import { useTheme, type ThemeMode } from "./ThemeProvider";
 import { MarkCheck } from "./MarkCheck";
 import { SourceLink, sourceForChannel, sourceUrls } from "./SourceLink";
 import { GlobeIcon, NewspaperIcon, BellIcon, GearIcon } from "./icons";
+import { signOutEverywhere } from "@/app/actions/auth";
 
 const THEME_MODES: { key: ThemeMode; label: string }[] = [
   { key: "light", label: "Light" },
@@ -281,6 +282,16 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
               );
             })}
           </div>
+          <form action={signOutEverywhere} style={{ marginTop: 2 }}>
+            <button
+              type="submit"
+              style={{ width: "100%", font: "500 12px 'Instrument Sans', sans-serif", padding: "7px 0", borderRadius: 6, border: "1px solid var(--line)", background: "transparent", color: "var(--text-3)", cursor: "pointer" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--text-3)"; }}
+            >
+              Sign out
+            </button>
+          </form>
         </div>,
         document.body
       )}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AuthButton from "@/components/AuthButton";
 import Landing from "@/components/Landing";
 
 export const metadata: Metadata = {
@@ -8,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <Landing />;
+  return <Landing authSlot={<AuthButton />} />;
 }
