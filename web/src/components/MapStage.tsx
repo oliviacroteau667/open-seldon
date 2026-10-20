@@ -7,8 +7,19 @@ import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { FeatureCollection, Feature, Polygon, MultiPolygon, Position, GeoJsonProperties } from "geojson";
 import { feature as topoFeature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
-import type { Message, CityCluster } from "@/types";
+import type { Message, CityCluster, Layer, LayerEvent } from "@/types";
 import { buildCityClusters } from "@/types";
+
+// deck.gl needs numeric colours: one per external point source, GDACS keyed by alert level
+const LAYER_RGB: Record<string, [number, number, number]> = {
+  gdacs: [245, 165, 36],
+  idmc_hdx: [79, 140, 255],
+  insecurity_insight: [244, 114, 182],
+  iom_mmp: [34, 193, 176],
+};
+const ALERT_RGB: Record<string, [number, number, number]> = { red: [232, 85, 62], orange: [245, 165, 36], green: [95, 208, 104] };
+
+export interface VisibleLayer { layer: Layer; events: LayerEvent[] }
 import { useTheme } from "./ThemeProvider";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -112,6 +123,10 @@ interface Props {
   flyTo?: { longitude: number; latitude: number; zoom: number; key: number } | null;
   autoRotate?: boolean; // slow idle spin (landing-page teaser); stops on first interaction
   initialZoom?: number;
+  visibleLayers?: VisibleLayer[];                       // external point layers currently toggled on
+  onEventClick?: (ev: LayerEvent, layer: Layer) => void;
+  unDataOpen?: boolean;
+  onToggleUnData?: () => void;
 }
 
 // Ray-casting point-in-polygon (handles Polygon and MultiPolygon)
@@ -244,7 +259,7 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, rightInset = 0, highlightCities, highlightRegions, flyTo, autoRotate = false, initialZoom }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, rightInset = 0, highlightCities, highlightRegions, flyTo, autoRotate = false, initialZoom, visibleLayers = [], onEventClick, unDataOpen = false, onToggleUnData }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isLight = useTheme().resolved === "light";
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
@@ -526,6 +541,34 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     return out;
   }, [geojson, showRegions, cityClusters, regionCounts, regionMax, worldGeojson, countryCounts, countryMax, zoom, selectedRegion, selectedCity, highlightCities, highlightRegions, highlightedCountries, isLight, RGB]);
 
+  // External point layers sit under the Telegram dots: one scatter layer per visible source
+  const externalLayers = useMemo(() => {
+    return visibleLayers.map(({ layer, events }) => {
+      const base = LAYER_RGB[layer.slug] ?? [154, 147, 184];
+      const color = (ev: LayerEvent): [number, number, number] =>
+        layer.slug === "gdacs" && ev.alert_level && ALERT_RGB[ev.alert_level] ? ALERT_RGB[ev.alert_level] : base;
+      return new ScatterplotLayer<LayerEvent>({
+        id: `ext-${layer.slug}`,
+        data: events.filter((e) => e.lat != null && e.lon != null),
+        pickable: true,
+        getPosition: (d) => [d.lon as number, d.lat as number, 0],
+        radiusUnits: "pixels",
+        getRadius: (d) => (d.alert_level === "red" ? 7 : d.alert_level === "orange" ? 6 : 5),
+        getFillColor: (d) => [...color(d), 215],
+        getLineColor: isLight ? [22, 18, 43, 190] : [255, 255, 255, 170],
+        stroked: true,
+        lineWidthUnits: "pixels",
+        getLineWidth: 1,
+        updateTriggers: { getFillColor: [layer.slug], getLineColor: [isLight] },
+      });
+    });
+  }, [visibleLayers, isLight]);
+
+  const attribution = useMemo(() => {
+    const parts = ["© CARTO", "© OpenStreetMap contributors", ...visibleLayers.map(({ layer }) => layer.attribution_text)];
+    return Array.from(new Set(parts)).join(" · ");
+  }, [visibleLayers]);
+
   const activeStyle = { color: "var(--text)", border: "1px solid var(--accent)" };
   const inactiveStyle = { color: "var(--text-3)", border: "1px solid var(--line)" };
 
@@ -547,10 +590,18 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
       >
       <DeckGLOverlay
         interleaved={false}
-        layers={ringLayer ? [...layers, ringLayer] : layers}
+        layers={(() => {
+          // polygons first, then external points, then the Telegram dots and labels on top
+          const dotsAt = Math.max(0, layers.findIndex((l) => l.id === "city-glow"));
+          return [...layers.slice(0, dotsAt), ...externalLayers, ...layers.slice(dotsAt), ...(ringLayer ? [ringLayer] : [])];
+        })()}
         getCursor={({ isDragging, isHovering }) => isDragging ? "grabbing" : isHovering ? "pointer" : "grab"}
         onClick={(info) => {
-          if (info.layer?.id === "city-scatter") {
+          if (info.layer?.id?.startsWith("ext-")) {
+            const slug = info.layer.id.slice(4);
+            const vl = visibleLayers.find((v) => v.layer.slug === slug);
+            if (vl) onEventClick?.(info.object as LayerEvent, vl.layer);
+          } else if (info.layer?.id === "city-scatter") {
             const city = (info.object as CityCluster).city;
             onCityClick?.(selectedCity === city ? null : city);
             onRegionClick?.(null);
@@ -569,9 +620,9 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
       />
       </Map>
 
-      {/* Basemap attribution (CARTO styles over OpenStreetMap data) */}
-      <span aria-label="Map attribution" style={{ position: "absolute", top: 80, right: rightInset + 20, zIndex: 5, pointerEvents: "none", font: "400 9px 'Space Mono', monospace", letterSpacing: ".04em", color: "var(--text-4)" }}>
-        © CARTO · © OpenStreetMap contributors
+      {/* Attribution: basemap plus every visible external layer (their licences require it) */}
+      <span aria-label="Map attribution" style={{ position: "absolute", top: 80, right: rightInset + 20, zIndex: 5, pointerEvents: "none", font: "400 9px 'Space Mono', monospace", letterSpacing: ".04em", color: "var(--text-4)", maxWidth: "40%", textAlign: "right", lineHeight: 1.5 }}>
+        {attribution}
       </span>
 
       {/* Screen-fixed grid, same texture as the launch screen */}
@@ -601,6 +652,17 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         >
           REGIONS
         </button>
+        {onToggleUnData && (
+          <button
+            onClick={onToggleUnData}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggleUnData(); } }}
+            aria-pressed={unDataOpen}
+            aria-label="Toggle UN data panel"
+            style={{ pointerEvents: "auto", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", background: "var(--panel)", padding: "6px 9px", borderRadius: 5, backdropFilter: "blur(20px)", cursor: "pointer", ...(unDataOpen ? activeStyle : inactiveStyle) }}
+          >
+            UN DATA
+          </button>
+        )}
       </div>
 
       {/* Legend */}

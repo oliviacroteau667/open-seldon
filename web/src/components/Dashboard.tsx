@@ -1,9 +1,11 @@
 "use client";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import type { MapHighlight, Message, PlaceRef } from "@/types";
+import type { Layer, LayerEvent, MapHighlight, Message, PlaceRef } from "@/types";
 import { CATEGORIES, catKeysForMessage } from "@/types";
-import { fetchDashboard } from "@/lib/api";
+import { fetchDashboard, fetchLayerEvents, fetchLayers } from "@/lib/api";
+import LayerDetailCard from "./LayerDetailCard";
+import UnDataPanel from "./UnDataPanel";
 import { launch, type LaunchHandle } from "@/lib/brand";
 import { useWindowSize } from "@/hooks/useWindowSize";
 import { useDragPanel } from "@/hooks/useDragPanel";
@@ -69,6 +71,44 @@ export default function Dashboard() {
   const [showRegions, setShowRegions] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [focusMessageId, setFocusMessageId] = useState<number | null>(null);
+
+  // External open-data layers: catalogue, which are on (remembered per browser), their events, selection
+  const [layers, setLayers] = useState<Layer[]>([]);
+  const [layersOn, setLayersOn] = useState<Record<string, boolean>>({});
+  const [layerEvents, setLayerEvents] = useState<Record<string, LayerEvent[]>>({});
+  const [selectedEvent, setSelectedEvent] = useState<{ event: LayerEvent; layer: Layer } | null>(null);
+  const [unDataOpen, setUnDataOpen] = useState(false);
+  useEffect(() => {
+    fetchLayers()
+      .then((ls) => {
+        setLayers(ls);
+        let remembered: Record<string, boolean> = {};
+        try { remembered = JSON.parse(localStorage.getItem("os-layers") ?? "{}"); } catch { /* ignore */ }
+        setLayersOn(Object.fromEntries(ls.map((l) => [l.slug, remembered[l.slug] ?? l.default_on])));
+      })
+      .catch((e) => console.warn("layers unavailable", e));
+  }, []);
+  const toggleLayer = useCallback((slug: string) => {
+    setLayersOn((prev) => {
+      const next = { ...prev, [slug]: !prev[slug] };
+      try { localStorage.setItem("os-layers", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    for (const l of layers) {
+      if (layersOn[l.slug] && !layerEvents[l.slug] && l.kind === "points") {
+        fetchLayerEvents(l.slug)
+          .then((r) => setLayerEvents((prev) => ({ ...prev, [l.slug]: r.events })))
+          .catch((e) => console.warn(`layer ${l.slug} unavailable`, e));
+      }
+    }
+  }, [layers, layersOn, layerEvents]);
+  const visibleLayers = useMemo(
+    () => layers.filter((l) => layersOn[l.slug] && l.kind === "points").map((layer) => ({ layer, events: layerEvents[layer.slug] ?? [] })),
+    [layers, layersOn, layerEvents]
+  );
+  const onEventClick = useCallback((event: LayerEvent, layer: Layer) => setSelectedEvent({ event, layer }), []);
 
   // Seldon → map: highlighted places and fly-to target
   const [mapHighlight, setMapHighlight] = useState<MapHighlight | null>(null);
@@ -249,9 +289,25 @@ export default function Dashboard() {
             dayLabel={(i) => dayLabel(i, DAYS)}
           />
         </div>
+        {/* Layer chips (external data) */}
+        {layers.some((l) => l.kind === "points") && (
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "0 12px 8px" }}>
+            {layers.filter((l) => l.kind === "points").map((l) => (
+              <button key={l.slug} onClick={() => toggleLayer(l.slug)} aria-pressed={!!layersOn[l.slug]}
+                style={{ flex: "none", font: "400 10px 'Space Mono', monospace", letterSpacing: ".06em", padding: "5px 9px", borderRadius: 5, cursor: "pointer", background: "var(--panel)", color: layersOn[l.slug] ? "var(--text)" : "var(--text-3)", border: `1px solid ${layersOn[l.slug] ? "var(--accent)" : "var(--line)"}` }}>
+                {l.name.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        )}
         {/* Map: top half */}
         <div style={{ flex: "0 0 45vh", position: "relative" }}>
-          <MapStage messages={inRange} showRegions={showRegions} onToggleRegions={() => setShowRegions((v) => !v)} selectedCity={cityFilter} onCityClick={setCityFilter} selectedRegion={regionFilter} onRegionClick={setRegionFilter} onCityRegionMap={setCityToRegion} />
+          <MapStage messages={inRange} showRegions={showRegions} onToggleRegions={() => setShowRegions((v) => !v)} selectedCity={cityFilter} onCityClick={setCityFilter} selectedRegion={regionFilter} onRegionClick={setRegionFilter} onCityRegionMap={setCityToRegion} visibleLayers={visibleLayers} onEventClick={onEventClick} />
+          {selectedEvent && (
+            <div style={{ position: "absolute", left: 10, right: 10, bottom: 10, zIndex: 6 }}>
+              <LayerDetailCard event={selectedEvent.event} layer={selectedEvent.layer} onClose={() => setSelectedEvent(null)} />
+            </div>
+          )}
         </div>
         {/* Scrollable messages below */}
         <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column" }}>
@@ -309,7 +365,19 @@ export default function Dashboard() {
           highlightCities={highlightCities}
           highlightRegions={highlightRegions}
           flyTo={flyTo}
+          visibleLayers={visibleLayers}
+          onEventClick={onEventClick}
+          unDataOpen={unDataOpen}
+          onToggleUnData={() => setUnDataOpen((v) => !v)}
         />
+
+        {/* UN data cards (HDX HAPI indicators) and the external-event detail card */}
+        {(unDataOpen || selectedEvent) && (
+          <div style={{ position: "absolute", left: leftPad, top: showRegions ? 200 : 114, zIndex: 11, display: "flex", flexDirection: "column", gap: 10, transition: overlayTransition }}>
+            {unDataOpen && <UnDataPanel onClose={() => setUnDataOpen(false)} />}
+            {selectedEvent && <LayerDetailCard event={selectedEvent.event} layer={selectedEvent.layer} onClose={() => setSelectedEvent(null)} />}
+          </div>
+        )}
 
         {/* Bottom-left overlay: category breakdown */}
         <div style={{ position: "absolute", left: leftPad, right: feed.width + chat.width + 20, bottom: 20, display: "flex", alignItems: "flex-end", gap: 16, zIndex: 10, pointerEvents: "none", transition: overlayTransition }}>
@@ -340,6 +408,9 @@ export default function Dashboard() {
               setChannelsOn(Object.fromEntries(channels.map((c) => [c, !allOn])));
             }}
             channelCounts={channelCounts}
+            layers={layers}
+            layersOn={layersOn}
+            onToggleLayer={toggleLayer}
           />
         </div>
 

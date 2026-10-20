@@ -1,0 +1,103 @@
+"use client";
+import React, { useEffect, useMemo, useState } from "react";
+import type { LayersSummary, SummaryIndicator } from "@/types";
+import { fetchLayersSummary } from "@/lib/api";
+
+const SANS = "'Instrument Sans', sans-serif";
+const MONO = "'Space Mono', monospace";
+
+export const UN_COUNTRIES = ["UKR", "POL", "MDA", "ROU", "SVK", "HUN"];
+const NAMES: Record<string, string> = { UKR: "Ukraine", POL: "Poland", MDA: "Moldova", ROU: "Romania", SVK: "Slovakia", HUN: "Hungary" };
+
+function num(v: number | null): string {
+  if (v == null) return "—";
+  if (Math.abs(v) >= 1e6) return (v / 1e6).toFixed(1) + "M";
+  if (Math.abs(v) >= 1e3) return (v / 1e3).toFixed(v >= 1e5 ? 0 : 1) + "k";
+  return v.toLocaleString("en-GB");
+}
+
+function period(i: SummaryIndicator): string {
+  const f = (d: string) => new Date(d).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  return i.period_end ? `${f(i.period_start)} – ${f(i.period_end)}` : f(i.period_start);
+}
+
+// Headline cards from HAPI indicators at admin0, per country, until boundaries make choropleths possible
+function buildCards(iso3: string, s: LayersSummary) {
+  const rows = s.indicators.filter((i) => i.iso3 === iso3);
+  const by = (ind: string, pick?: (i: SummaryIndicator) => boolean) => rows.filter((i) => i.indicator === ind && (!pick || pick(i)));
+  const cards: { value: string; label: string; source: string }[] = [];
+
+  const ipc = by("ipc_phase", (i) => i.extra_key.startsWith("3+") || i.value_text === "3+");
+  if (ipc.length) cards.push({ value: num(ipc[0].value), label: "IPC phase 3+ population", source: `IPC via HDX HAPI · ${period(ipc[0])}` });
+
+  const ref = by("refugees", (i) => i.extra_key === "ALL|ALL" || i.extra_key.endsWith("|REF") || i.extra_key.startsWith("ALL|"));
+  if (ref.length) {
+    const total = ref.reduce((a, i) => a + (i.value ?? 0), 0);
+    cards.push({ value: num(total), label: "Refugees & people of concern hosted", source: `UNHCR via HDX HAPI · ${period(ref[0])}` });
+  }
+
+  const risk = by("inform_risk");
+  if (risk.length) cards.push({ value: risk[0].value_text ?? num(risk[0].value), label: `INFORM risk${risk[0].extra?.global_rank ? ` · rank ${risk[0].extra.global_rank}` : ""}`, source: `INFORM (UNDP / JRC) via HDX HAPI · ${period(risk[0])}` });
+
+  const conflict = by("conflict_events");
+  if (conflict.length) {
+    const total = conflict.reduce((a, i) => a + (i.value ?? 0), 0);
+    const fat = conflict.reduce((a, i) => a + (Number(i.extra?.fatalities) || 0), 0);
+    cards.push({ value: num(total), label: `Conflict events · ${fat ? `${num(fat)} fatalities` : period(conflict[0])}`, source: `ACLED via HDX HAPI · ${period(conflict[0])} · accessed ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}` });
+  }
+
+  const pres = by("operational_presence");
+  if (pres.length) {
+    const orgs = new Set(pres.map((i) => i.value_text)).size;
+    cards.push({ value: num(orgs), label: "Organisations present (3W)", source: `OCHA 3W via HDX HAPI · ${period(pres[0])}` });
+  }
+
+  const alerts = s.gdacs_last_30d.filter((a) => a.iso3 === iso3);
+  if (alerts.length) {
+    const n = alerts.reduce((a, r) => a + r.n, 0);
+    const red = alerts.find((a) => a.alert_level === "red")?.n ?? 0;
+    cards.push({ value: num(n), label: `GDACS alerts · 30 days${red ? ` · ${red} red` : ""}`, source: "GDACS" });
+  }
+  return cards;
+}
+
+export default function UnDataPanel({ onClose }: { onClose: () => void }) {
+  const [summary, setSummary] = useState<LayersSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [iso3, setIso3] = useState("UKR");
+  useEffect(() => {
+    fetchLayersSummary(UN_COUNTRIES).then(setSummary).catch((e) => setError(String(e)));
+  }, []);
+  const cards = useMemo(() => (summary ? buildCards(iso3, summary) : []), [summary, iso3]);
+
+  return (
+    <div role="region" aria-label="UN data" style={{ background: "var(--panel-strong)", border: "1px solid var(--line)", borderRadius: 10, backdropFilter: "blur(20px)", boxShadow: "var(--shadow)", padding: "12px 14px 14px", width: 420, maxWidth: "calc(100vw - 40px)", color: "var(--text)", font: `400 12px ${SANS}` }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ font: `400 10px ${MONO}`, letterSpacing: ".12em", color: "var(--text-3)" }}>UN DATA · LATEST PERIODS</span>
+        <button onClick={onClose} aria-label="Close" style={{ marginLeft: "auto", background: "none", border: 0, color: "var(--text-3)", cursor: "pointer", font: `400 16px ${SANS}`, lineHeight: 1, padding: 0 }}>×</button>
+      </div>
+      <div role="tablist" aria-label="Country" style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 10 }}>
+        {UN_COUNTRIES.map((c) => (
+          <button key={c} role="tab" aria-selected={c === iso3} onClick={() => setIso3(c)}
+            style={{ font: `500 11px ${SANS}`, padding: "4px 9px", borderRadius: 999, cursor: "pointer", border: `1px solid ${c === iso3 ? "var(--accent)" : "var(--line)"}`, background: c === iso3 ? "var(--accent-tint)" : "transparent", color: c === iso3 ? "var(--text)" : "var(--text-3)" }}>
+            {NAMES[c] ?? c}
+          </button>
+        ))}
+      </div>
+      {error && <div style={{ color: "var(--negative)", marginTop: 10 }}>Could not load UN data: {error}</div>}
+      {!error && !summary && <div style={{ color: "var(--text-3)", marginTop: 10, font: `400 10px ${MONO}` }}>LOADING…</div>}
+      {summary && cards.length === 0 && <div style={{ color: "var(--text-3)", marginTop: 10 }}>No indicators yet for {NAMES[iso3] ?? iso3}. The nightly HDX HAPI pull fills these in.</div>}
+      {cards.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, marginTop: 10 }}>
+          {cards.map((c) => (
+            <div key={c.label} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 10px", minWidth: 0 }}>
+              <div style={{ font: `600 19px ${SANS}`, fontVariantNumeric: "tabular-nums" }}>{c.value}</div>
+              <div style={{ font: `400 9px ${MONO}`, letterSpacing: ".08em", color: "var(--text-3)", textTransform: "uppercase", marginTop: 2 }}>{c.label}</div>
+              <div style={{ font: `400 8.5px ${MONO}`, color: "var(--text-4)", marginTop: 6, lineHeight: 1.4 }}>{c.source}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

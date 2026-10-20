@@ -25,6 +25,81 @@ export interface DashboardData {
   channels: string[];
 }
 
+// External open-data layers (docs/open-data-integration.md)
+export interface Layer {
+  slug: string;
+  name: string;
+  provider: string;
+  kind: "points" | "areas" | "documents" | "boundaries";
+  licence_id: string;
+  attribution_text: string;
+  homepage: string | null;
+  default_on: boolean;
+  cadence: "daily" | "weekly";
+  countries: string[] | null;
+  record_count: number;
+  last_success_at: string | null;
+  last_error: string | null;
+}
+
+export interface LayerEvent {
+  id: number;
+  source_record_id: string;
+  event_type: string | null;
+  category: string | null;
+  title: string;
+  summary: string | null;
+  url: string | null;
+  occurred_at: string;
+  reported_at: string | null;
+  lat: number | null;
+  lon: number | null;
+  precision: string | null;
+  iso3: string | null;
+  severity: string | null;
+  alert_level: string | null;
+  metrics: Record<string, unknown>;
+}
+
+export interface LayerEventsResponse {
+  layer: Pick<Layer, "slug" | "name" | "attribution_text" | "licence_id" | "last_success_at">;
+  events: LayerEvent[];
+}
+
+export interface SummaryIndicator {
+  iso3: string;
+  indicator: string;
+  extra_key: string;
+  period_start: string;
+  period_end: string | null;
+  value: number | null;
+  value_text: string | null;
+  extra: Record<string, unknown>;
+  attribution_text: string;
+}
+
+export interface LayersSummary {
+  countries: string[];
+  indicators: SummaryIndicator[];
+  gdacs_last_30d: { iso3: string; alert_level: string | null; n: number }[];
+}
+
+// One colour per point source so layers read apart from the lime Telegram dots
+export const LAYER_COLORS: Record<string, string> = {
+  gdacs: "var(--warn)",
+  idmc_hdx: "var(--cat-legal)",
+  insecurity_insight: "var(--cat-safety)",
+  iom_mmp: "var(--cat-employment)",
+};
+
+// Fresh enough? A layer older than twice its cadence is stale.
+export function layerIsStale(layer: Layer, now = Date.now()): boolean {
+  if (!layer.last_success_at) return true;
+  const age = now - new Date(layer.last_success_at).getTime();
+  const limit = (layer.cadence === "weekly" ? 14 : 2) * 86400000;
+  return age > limit;
+}
+
 export interface PlaceRef {
   kind: "city" | "region";
   name: string;

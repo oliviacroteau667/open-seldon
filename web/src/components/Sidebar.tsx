@@ -6,6 +6,15 @@ import { MarkCheck } from "./MarkCheck";
 import { SourceLink, sourceForChannel, sourceUrls } from "./SourceLink";
 import { GlobeIcon, NewspaperIcon, BellIcon, GearIcon } from "./icons";
 import { signOutEverywhere } from "@/app/actions/auth";
+import { LAYER_COLORS, layerIsStale, type Layer } from "@/types";
+
+function ageLabel(iso: string | null): string {
+  if (!iso) return "never";
+  const hours = (Date.now() - new Date(iso).getTime()) / 3600000;
+  if (hours < 1) return "now";
+  if (hours < 36) return `${Math.round(hours)}h`;
+  return `${Math.round(hours / 24)}d`;
+}
 
 const THEME_MODES: { key: ThemeMode; label: string }[] = [
   { key: "light", label: "Light" },
@@ -23,6 +32,9 @@ interface Props {
   onToggleChannel: (ch: string) => void;
   onToggleAll: () => void;
   channelCounts: Record<string, number>;
+  layers?: Layer[];
+  layersOn?: Record<string, boolean>;
+  onToggleLayer?: (slug: string) => void;
 }
 
 const PAGES = [
@@ -37,7 +49,7 @@ function activateOnEnterSpace(fn: () => void) {
   };
 }
 
-export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHandleMouseDown, channels, channelsOn, onToggleChannel, onToggleAll, channelCounts }: Props) {
+export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHandleMouseDown, channels, channelsOn, onToggleChannel, onToggleAll, channelCounts, layers = [], layersOn = {}, onToggleLayer }: Props) {
   const allOn = channels.every((c) => channelsOn[c] !== false);
   const { mode, resolved, setMode } = useTheme();
   const brandSuffix = resolved === "light" ? "light" : "dark";
@@ -191,6 +203,53 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
           );
         })}
       </div>
+
+      {/* External open-data layers (GDACS, HDX, …): toggle, freshness, licence hint */}
+      {layers.filter((l) => l.kind === "points").length > 0 && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", padding: "14px 8px 8px", whiteSpace: "nowrap" }}>
+            {!isCollapsed && <span id="layers-label" style={{ font: "400 10px 'Space Mono', monospace", color: "var(--text-3)", letterSpacing: ".1em" }}>LAYERS</span>}
+          </div>
+          <div role="group" aria-labelledby="layers-label">
+            {layers.filter((l) => l.kind === "points").map((l) => {
+              const on = layersOn[l.slug] === true;
+              const stale = layerIsStale(l);
+              const shareAlike = /SA|ODbL/.test(l.licence_id);
+              return (
+                <div
+                  key={l.slug}
+                  role="checkbox"
+                  aria-checked={on}
+                  aria-label={`${l.name} layer`}
+                  title={`${l.attribution_text} · ${l.licence_id}${l.last_success_at ? ` · updated ${new Date(l.last_success_at).toLocaleString("en-GB")}` : ""}`}
+                  tabIndex={0}
+                  onClick={() => onToggleLayer?.(l.slug)}
+                  onKeyDown={activateOnEnterSpace(() => onToggleLayer?.(l.slug))}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 6, cursor: "pointer", whiteSpace: "nowrap" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "var(--hover)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+                >
+                  <span style={{ display: "grid", placeItems: "center", width: 20, flexShrink: 0 }}>
+                    <MarkCheck checked={on} size={18} />
+                  </span>
+                  {!isCollapsed && (
+                    <>
+                      <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: "50%", background: LAYER_COLORS[l.slug] ?? "var(--text-3)", flexShrink: 0 }} />
+                      <span style={{ font: "400 12px 'Instrument Sans', sans-serif", color: on ? "var(--text)" : "var(--text-3)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", transition: "color .25s" }}>
+                        {l.name}
+                      </span>
+                      {shareAlike && <span aria-label="share-alike licence" style={{ font: "400 8px 'Space Mono', monospace", letterSpacing: ".06em", border: "1px solid var(--line)", borderRadius: 3, padding: "1px 3px", color: "var(--text-3)" }}>SA</span>}
+                      <span aria-label={stale ? "stale" : "updated"} style={{ font: "400 10px 'Space Mono', monospace", color: stale ? "var(--warn)" : "var(--text-3)" }}>
+                        {stale ? "stale" : ageLabel(l.last_success_at)}
+                      </span>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <div style={{ flex: 1 }} />
 
