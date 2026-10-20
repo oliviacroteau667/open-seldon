@@ -83,7 +83,7 @@ entries:
       activate_user_on_success: true
       token_expiry: days=3
       subject: Confirm your Open Seldon account
-      template: email/account_confirmation.html
+      template: openseldon-confirm-sign-up.html
 
   - model: authentik_stages_user_login.userloginstage
     state: present
@@ -158,8 +158,7 @@ entries:
       activate_user_on_success: false
       token_expiry: minutes=30
       subject: Your Open Seldon sign-in link
-      # built-in template for now; swap for a custom magic-link template under /templates later
-      template: email/account_confirmation.html
+      template: openseldon-sign-in.html
 
   - model: authentik_flows.flow
     state: present
