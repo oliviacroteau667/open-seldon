@@ -27,6 +27,7 @@ jobs:
           script: |
             cd /root/open-seldon
             docker compose exec -T openseldon-api python -m pipeline.run_daily
+            docker compose exec -T openseldon-api python -m pipeline.run_sources
 
       - name: Open or update issue on failure
         if: failure()

@@ -11,6 +11,7 @@ from modules.dbcreds import resolve_postgres_dsn
 from routers import auth as auth_router
 from routers import dashboard as dashboard_router
 from routers import chat as chat_router
+from routers import layers as layers_router
 
 configure_logging()
 log = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(dashboard_router.router)
 app.include_router(chat_router.router)
+app.include_router(layers_router.router)
 
 
 def get_pool() -> asyncpg.Pool:
@@ -63,8 +65,11 @@ async def health():
     async with pool.acquire() as conn:
         count = await conn.fetchval("SELECT COUNT(*) FROM messages")
         newest = await conn.fetchval("SELECT MAX(date) FROM messages")
+        layers = await conn.fetch("SELECT slug, last_success_at, record_count FROM sources WHERE enabled ORDER BY slug")
     return {
         "status": "ok",
         "message_count": count,
         "newest_message_at": newest.isoformat() if newest else None,
+        "layers": {r["slug"]: {"last_success_at": r["last_success_at"].isoformat() if r["last_success_at"] else None,
+                               "records": r["record_count"]} for r in layers},
     }
