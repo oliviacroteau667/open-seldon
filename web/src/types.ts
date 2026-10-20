@@ -81,6 +81,8 @@ export interface SummaryIndicator {
 export interface LayersSummary {
   countries: string[];
   indicators: SummaryIndicator[];
+  refugees: { iso3: string; period_start: string; total: number | null; from_ukraine: number | null; others_of_concern: number | null }[];
+  operational_presence: { iso3: string; period_start: string; orgs: number; areas: number }[];
   gdacs_last_30d: { iso3: string; alert_level: string | null; n: number }[];
 }
 

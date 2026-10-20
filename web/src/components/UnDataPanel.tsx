@@ -30,10 +30,15 @@ function buildCards(iso3: string, s: LayersSummary) {
   const ipc = by("ipc_phase", (i) => i.extra_key.startsWith("3+") || i.value_text === "3+");
   if (ipc.length) cards.push({ value: num(ipc[0].value), label: "IPC phase 3+ population", source: `IPC via HDX HAPI · ${period(ipc[0])}` });
 
-  const ref = by("refugees", (i) => i.extra_key === "ALL|ALL" || i.extra_key.endsWith("|REF") || i.extra_key.startsWith("ALL|"));
-  if (ref.length) {
-    const total = ref.reduce((a, i) => a + (i.value ?? 0), 0);
-    cards.push({ value: num(total), label: "Refugees & people of concern hosted", source: `UNHCR via HDX HAPI · ${period(ref[0])}` });
+  const ref = (s.refugees ?? []).find((r) => r.iso3 === iso3);
+  if (ref) {
+    const year = new Date(ref.period_start).getFullYear();
+    if (iso3 === "UKR") {
+      if (ref.others_of_concern != null) cards.push({ value: num(ref.others_of_concern), label: "Others of concern to UNHCR (in country)", source: `UNHCR via HDX HAPI · ${year}` });
+    } else {
+      cards.push({ value: num(ref.total), label: "Refugees & asylum-seekers hosted", source: `UNHCR via HDX HAPI · ${year}` });
+      if (ref.from_ukraine != null) cards.push({ value: num(ref.from_ukraine), label: "Of which from Ukraine", source: `UNHCR via HDX HAPI · ${year}` });
+    }
   }
 
   const risk = by("inform_risk");
@@ -46,11 +51,8 @@ function buildCards(iso3: string, s: LayersSummary) {
     cards.push({ value: num(total), label: `Conflict events · ${fat ? `${num(fat)} fatalities` : period(conflict[0])}`, source: `ACLED via HDX HAPI · ${period(conflict[0])} · accessed ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}` });
   }
 
-  const pres = by("operational_presence");
-  if (pres.length) {
-    const orgs = new Set(pres.map((i) => i.value_text)).size;
-    cards.push({ value: num(orgs), label: "Organisations present (3W)", source: `OCHA 3W via HDX HAPI · ${period(pres[0])}` });
-  }
+  const pres = (s.operational_presence ?? []).find((r) => r.iso3 === iso3);
+  if (pres) cards.push({ value: num(pres.orgs), label: `Organisations present (3W) · ${pres.areas} areas`, source: `OCHA 3W via HDX HAPI · ${new Date(pres.period_start).getFullYear()}` });
 
   const alerts = s.gdacs_last_30d.filter((a) => a.iso3 === iso3);
   if (alerts.length) {

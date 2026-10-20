@@ -119,6 +119,31 @@ def test_idmc_row_parses_with_figure_and_coordinates():
     assert ev.reference_period_start == date(2026, 10, 17)
 
 
+def test_idmc_non_recommended_figure_is_skipped():
+    from pipeline.sources.idmc_hdx import parse_row
+    base = {"id": "9", "displacement_date": "2026-10-18", "iso3": "UKR", "figure": "10"}
+    assert parse_row({**base, "role": "Recommended figure"}) is not None
+    assert parse_row({**base, "role": "Triangulation"}) is None
+
+
+def test_iom_mmp_row_parses_coordinates_and_counts():
+    from pipeline.sources.iom_mmp import parse_row
+    ev = parse_row({"web_id": "2026.MMP00123", "region": "Europe", "reported_date": "2026-09-14", "number_dead": "3",
+                    "number_missing": "12", "total_dead_and_missing": "15", "cause_death": "Drowning",
+                    "country_of_incident": "Greece", "location_description": "Off Lesbos", "location_coodinates": "39.1, 26.3",
+                    "migration_route": "Eastern Mediterranean", "information_source": "Hellenic Coast Guard",
+                    "url": "https://example.org/x", "source_quality": "4"})
+    assert ev is not None and ev.source_record_id == "2026.MMP00123"
+    assert (ev.lat, ev.lon) == (39.1, 26.3) and ev.metrics["total"] == 15.0
+    assert ev.title.startswith("15 dead or missing — Eastern Mediterranean") and ev.category == "border"
+
+
+def test_iom_mmp_bad_coordinates_become_none():
+    from pipeline.sources.iom_mmp import parse_row
+    ev = parse_row({"web_id": "x", "reported_date": "2026-01-01", "location_coodinates": "n/a"})
+    assert ev is not None and ev.lat is None and ev.precision is None
+
+
 def test_idmc_row_without_id_or_date_is_skipped():
     from pipeline.sources.idmc_hdx import parse_row
     assert parse_row({"id": "", "displacement_date": "2026-10-18"}) is None

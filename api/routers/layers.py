@@ -58,6 +58,36 @@ async def layers_summary(iso3: str = Query("UKR,POL,MDA,ROU,SVK,HUN"), pool: asy
             """,
             codes,
         )
+        # UNHCR rows are origin x group; total them at each country's latest reporting year so the
+        # headline is one period, not a mix of whichever year each origin was last reported.
+        refugees = await conn.fetch(
+            """
+            WITH latest AS (
+                SELECT iso3, MAX(period_start) AS period_start FROM area_indicators
+                WHERE indicator = 'refugees' AND admin_level = 0 AND iso3 = ANY($1::text[]) GROUP BY iso3)
+            SELECT a.iso3, a.period_start,
+                   SUM(a.value) FILTER (WHERE a.extra_key LIKE '%|REF' OR a.extra_key LIKE '%|ASY' OR a.extra_key LIKE '%|OIP') AS total,
+                   SUM(a.value) FILTER (WHERE a.extra_key LIKE 'UKR|%' AND a.iso3 <> 'UKR') AS from_ukraine,
+                   SUM(a.value) FILTER (WHERE a.extra_key LIKE '%|OOC') AS others_of_concern
+            FROM area_indicators a JOIN latest l ON l.iso3 = a.iso3 AND l.period_start = a.period_start
+            WHERE a.indicator = 'refugees' AND a.admin_level = 0
+            GROUP BY a.iso3, a.period_start
+            """,
+            codes,
+        )
+        # 3W presence is reported at admin1/2; count distinct organisations in the latest period
+        presence = await conn.fetch(
+            """
+            WITH latest AS (
+                SELECT iso3, MAX(period_start) AS period_start FROM area_indicators
+                WHERE indicator = 'operational_presence' AND iso3 = ANY($1::text[]) GROUP BY iso3)
+            SELECT a.iso3, a.period_start, COUNT(DISTINCT a.value_text) AS orgs, COUNT(DISTINCT a.pcode) AS areas
+            FROM area_indicators a JOIN latest l ON l.iso3 = a.iso3 AND l.period_start = a.period_start
+            WHERE a.indicator = 'operational_presence'
+            GROUP BY a.iso3, a.period_start
+            """,
+            codes,
+        )
         alerts = await conn.fetch(
             """
             SELECT iso3, alert_level, COUNT(*) AS n
@@ -69,7 +99,9 @@ async def layers_summary(iso3: str = Query("UKR,POL,MDA,ROU,SVK,HUN"), pool: asy
         )
     return {
         "countries": codes,
-        "indicators": [_row(r) for r in indicators],
+        "indicators": [_row(r) for r in indicators if r["indicator"] != "refugees"],
+        "refugees": [_row(r) for r in refugees],
+        "operational_presence": [_row(r) for r in presence],
         "gdacs_last_30d": [_row(r) for r in alerts],
     }
 

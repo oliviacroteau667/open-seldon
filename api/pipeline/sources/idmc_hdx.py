@@ -28,6 +28,10 @@ def parse_row(row: dict) -> PointEvent | None:
     occurred = parse_dt(row.get("displacement_date") or row.get("displacement_start_date") or row.get("created_at"))
     if not rid or occurred is None:
         return None
+    # IDMC lists alternative figures for the same event under other roles; keep the recommended one
+    role = (row.get("role") or "").strip().lower()
+    if role and role != "recommended figure":
+        return None
     lat, lon = _num(row.get("latitude")), _num(row.get("longitude"))
     figure = _num(row.get("figure"))
     dtype = (row.get("displacement_type") or "").strip() or None
@@ -40,7 +44,7 @@ def parse_row(row: dict) -> PointEvent | None:
         source_record_id=str(rid),
         title=title[:300],
         summary=(row.get("standard_popup_text") or row.get("description") or None),
-        url=(row.get("source_url") or row.get("standard_info_text") or None),
+        url=(row.get("source_url") or row.get("link") or None),
         occurred_at=occurred,
         reported_at=parse_dt(row.get("created_at")),
         lat=lat, lon=lon,
