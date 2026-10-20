@@ -163,7 +163,7 @@ choropleth, change strip, phone sheet).
 |---|---|---|
 | P4.0 | **live** | GDACS (≈4.4k events, 90-day backfill) and HAPI (≈149k area rows for UKR/POL/MDA/ROU/SVK/HUN) run nightly after the Telegram pipeline. Sidebar layer toggles, GDACS points on the globe, UN DATA panel and attribution strip are deployed. |
 | P4.1 | **live** | `idmc_hdx` (1,146 displacement events since Jan 2025), `iom_mmp` (2,776 incidents — HDX mirror holds 2024 only, see below) and `insecurity_insight` (monthly counts per oblast, four themes) enabled on the server. |
-| P4.2 | not started | Blocked only on time; COD-AB loader design is in the data model above. |
+| P4.2 | **live** | `cod_ab` loaded admin0 + admin1 for all six countries (122 areas, geometry simplified ~7×). UN data cards for Insecurity Insight themes and ACLED conflict events have **Show by area**, which draws an oblast/voivodeship choropleth at one period with a legend, click-to-read values and attribution. |
 | P4.3 | waiting on Olivia | Submit `docs/reliefweb-appname-request.md` to ReliefWeb; connector is ~1 hour once the appname is approved. |
 | P4.4 | not started | |
 
