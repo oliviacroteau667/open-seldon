@@ -27,7 +27,8 @@ def get_model() -> TextEmbedding:
     return _model
 
 
-async def embed_batch(batch_size: int = 200) -> None:
+async def embed_batch(batch_size: int = 200) -> int:
+    """Embed one batch; returns how many rows were picked up (0 = nothing left)."""
     pool = await asyncpg.create_pool(
         resolve_postgres_dsn(), min_size=2, max_size=5,
         init=register_vector,
@@ -48,7 +49,7 @@ async def embed_batch(batch_size: int = 200) -> None:
     if not rows:
         log.info("no messages to embed")
         await pool.close()
-        return
+        return 0
 
     log.info("embedding %d messages", len(rows))
     model = get_model()
@@ -63,6 +64,7 @@ async def embed_batch(batch_size: int = 200) -> None:
 
     log.info("embedding batch complete")
     await pool.close()
+    return len(rows)
 
 
 if __name__ == "__main__":

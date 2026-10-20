@@ -103,7 +103,8 @@ async def analyze_media(media_path: str, media_type: str) -> str | None:
         return None
 
 
-async def analyze_batch(batch_size: int = 20) -> None:
+async def analyze_batch(batch_size: int = 20) -> int:
+    """Analyze one batch of media; returns how many rows were picked up (0 = nothing left)."""
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
 
     async with pool.acquire() as conn:
@@ -142,6 +143,7 @@ async def analyze_batch(batch_size: int = 20) -> None:
 
     log.info("media analysis batch complete")
     await pool.close()
+    return len(rows)
 
 
 if __name__ == "__main__":

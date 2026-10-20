@@ -62,4 +62,9 @@ async def health():
     pool = get_pool()
     async with pool.acquire() as conn:
         count = await conn.fetchval("SELECT COUNT(*) FROM messages")
-    return {"status": "ok", "message_count": count}
+        newest = await conn.fetchval("SELECT MAX(date) FROM messages")
+    return {
+        "status": "ok",
+        "message_count": count,
+        "newest_message_at": newest.isoformat() if newest else None,
+    }

@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import logging
 import os
+import sys
 from pathlib import Path
 
 import asyncpg
@@ -44,19 +45,38 @@ def media_type_for(msg) -> str:
     return "text"
 
 
-async def scrape(channel: str, limit: int, full: bool, no_media: bool = False) -> None:
-    if not no_media:
-        MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+class TelegramNotAuthorized(RuntimeError):
+    """The saved session is missing or expired and no terminal is attached to log in."""
 
+
+async def connect_client() -> TelegramClient:
     Path(SESSION_PATH).parent.mkdir(parents=True, exist_ok=True)
     client = TelegramClient(
         SESSION_PATH,
         int(os.environ["TELEGRAM_API_ID"]),
         os.environ["TELEGRAM_API_HASH"],
     )
-    pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
+    await client.connect()
+    if await client.is_user_authorized():
+        return client
+    if sys.stdin.isatty():
+        # Interactive first-time login: Telethon prompts for the code sent to the phone
+        await client.start(phone=os.environ["TELEGRAM_PHONE"])
+        return client
+    await client.disconnect()
+    raise TelegramNotAuthorized(
+        "Telegram session is not authorized; run `python -m pipeline.scraper --channel <name>` "
+        "interactively once to log in"
+    )
 
-    await client.start(phone=os.environ["TELEGRAM_PHONE"])
+
+async def scrape(channel: str, limit: int, full: bool, no_media: bool = False) -> int:
+    """Scrape one channel and return the number of newly inserted messages."""
+    if not no_media:
+        MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+
+    client = await connect_client()
+    pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
     log.info("connected to Telegram, scraping %s", channel)
 
     # Incremental: only fetch messages newer than what we already have
@@ -114,7 +134,12 @@ async def scrape(channel: str, limit: int, full: bool, no_media: bool = False) -
     log.info("scrape complete — %d new messages inserted", inserted)
     await client.disconnect()
     await pool.close()
+    return inserted
 
+
+async def scrape_and_process(channel: str, limit: int, full: bool, no_media: bool) -> None:
+    """CLI behaviour: scrape one channel, then process whatever it brought in."""
+    inserted = await scrape(channel, limit, full, no_media)
     if inserted == 0:
         log.info("no new messages — skipping pipeline")
         return
@@ -146,4 +171,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     logging.basicConfig(level="INFO")
-    asyncio.run(scrape(args.channel, args.limit, args.full, args.no_media))
+    asyncio.run(scrape_and_process(args.channel, args.limit, args.full, args.no_media))

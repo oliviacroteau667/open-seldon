@@ -10,7 +10,9 @@
       "Bash(docker compose -f * ps *)",
       "Bash(curl -s http://localhost:*)",
       "Bash(curl -f http://localhost:*)",
-      "Bash(ssh -i * root@2.29.57.27 *)"
+      "Bash(ssh -i * root@2.29.57.27 *)",
+      "WebSearch",
+      "WebFetch"
     ]
   }
 }

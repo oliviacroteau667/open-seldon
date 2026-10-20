@@ -1,0 +1,69 @@
+name: Daily Pipeline
+
+on:
+  schedule:
+    - cron: '0 5 * * *'   # 05:00 UTC, four hours before the API audit
+  workflow_dispatch:
+
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      issues: write
+    steps:
+      - name: Scrape and process on the server
+        id: pipeline
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          command_timeout: 55m
+          script: |
+            cd /root/open-seldon
+            docker compose exec -T openseldon-api python -m pipeline.run_daily
+
+      - name: Open or update issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Daily pipeline failed';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'pipeline-failure',
+            });
+            if (open.data.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: open.data[0].number,
+                body: `Failed again on ${new Date().toISOString()}. Run: ${run}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title, labels: ['pipeline-failure'],
+                body: `The scheduled scrape/process run failed. The JSON summary and stage logs are in the run: ${run}\n\nIf it says the Telegram session is not authorized, log in once interactively on the server: \`docker compose exec openseldon-api python -m pipeline.scraper --channel polska_grupa_informacyjna\`.`,
+              });
+            }
+
+      - name: Close failure issue on success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'pipeline-failure',
+            });
+            for (const issue of open.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number,
+                body: `Recovered: the pipeline ran successfully on ${new Date().toISOString()}.`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, state: 'closed',
+              });
+            }

@@ -25,7 +25,8 @@ If the text is empty or non-linguistic, return {"language": "und", "translation"
 Return only the JSON object, no other text."""
 
 
-async def translate_batch(batch_size: int = 50) -> None:
+async def translate_batch(batch_size: int = 50) -> int:
+    """Translate one batch; returns how many rows were picked up (0 = nothing left)."""
     client = openrouter_client()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
 
@@ -77,6 +78,7 @@ async def translate_batch(batch_size: int = 50) -> None:
 
     log.info("translation batch complete")
     await pool.close()
+    return len(rows)
 
 
 if __name__ == "__main__":

@@ -27,7 +27,8 @@ Return an empty list if no locations are mentioned.
 Return only the JSON object, no other text."""
 
 
-async def extract_locations(batch_size: int = 100) -> None:
+async def extract_locations(batch_size: int = 100) -> int:
+    """Extract locations for one batch; returns how many rows were picked up (0 = nothing left)."""
     client = openrouter_client()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
 
@@ -72,6 +73,7 @@ async def extract_locations(batch_size: int = 100) -> None:
 
     log.info("NER batch complete")
     await pool.close()
+    return len(rows)
 
 
 if __name__ == "__main__":

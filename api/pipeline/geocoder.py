@@ -66,7 +66,8 @@ async def geocode_locations(client, locations: list[str]) -> list[dict]:
         return []
 
 
-async def geocode_batch(batch_size: int = 50) -> None:
+async def geocode_batch(batch_size: int = 50) -> int:
+    """Geocode one batch; returns how many rows were picked up (0 = nothing left)."""
     client = openrouter_client()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
 
@@ -96,6 +97,7 @@ async def geocode_batch(batch_size: int = 50) -> None:
 
     log.info("geocoding batch complete")
     await pool.close()
+    return len(rows)
 
 
 if __name__ == "__main__":

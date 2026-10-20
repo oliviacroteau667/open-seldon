@@ -48,7 +48,8 @@ Return an empty list if none apply. Use exact category names from the list above
 Return only the JSON object, no other text."""
 
 
-async def categorize_batch(batch_size: int = 100) -> None:
+async def categorize_batch(batch_size: int = 100) -> int:
+    """Categorize one batch; returns how many rows were picked up (0 = nothing left)."""
     client = openrouter_client()
     pool = await asyncpg.create_pool(resolve_postgres_dsn(), min_size=2, max_size=5)
 
@@ -98,6 +99,7 @@ async def categorize_batch(batch_size: int = 100) -> None:
 
     log.info("categorization batch complete")
     await pool.close()
+    return len(rows)
 
 
 if __name__ == "__main__":
