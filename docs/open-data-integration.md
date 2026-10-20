@@ -156,3 +156,32 @@ choropleth, change strip, phone sheet).
 3. **P4.2 Boundaries and choropleths** — COD-AB loader, HAPI indicators on the map, legend.
 4. **P4.3 ReliefWeb** — after appname approval.
 5. **P4.4 Opportunistic** — Copernicus EMS, UCDP (licence permitting).
+
+## Where we are (updated 2026-10-21)
+
+| Slice | State | Notes |
+|---|---|---|
+| P4.0 | **live** | GDACS (≈4.4k events, 90-day backfill) and HAPI (≈149k area rows for UKR/POL/MDA/ROU/SVK/HUN) run nightly after the Telegram pipeline. Sidebar layer toggles, GDACS points on the globe, UN DATA panel and attribution strip are deployed. |
+| P4.1 | **live** | `idmc_hdx` (1,146 displacement events since Jan 2025), `iom_mmp` (2,776 incidents — HDX mirror holds 2024 only, see below) and `insecurity_insight` (monthly counts per oblast, four themes) enabled on the server. |
+| P4.2 | not started | Blocked only on time; COD-AB loader design is in the data model above. |
+| P4.3 | waiting on Olivia | Submit `docs/reliefweb-appname-request.md` to ReliefWeb; connector is ~1 hour once the appname is approved. |
+| P4.4 | not started | |
+
+Known data facts worth remembering:
+
+- HAPI **IPC/food security has no rows for any of the six countries** — IPC does not run analyses
+  there, so the card is simply absent. Not a bug.
+- HAPI **refugees** rows are origin × population-group per year; `/layers/summary` totals them at
+  each country's latest UNHCR year (2025) and separately reports the Ukrainian-origin share.
+  Poland hosts ≈972k Ukrainian refugees, Moldova ≈149k, Slovakia ≈139k, Romania ≈199k, Hungary ≈65k.
+- HAPI **food prices** for Ukraine stop in 2017 (WFP market monitor coverage) — kept for history,
+  not surfaced as a headline.
+- HAPI **operational presence (3W)** is empty for all six countries (confirmed directly against
+  the endpoint). OCHA Ukraine publishes its 3W as a separate HDX dataset; a follow-up connector
+  could read that if the card matters.
+- **IOM Missing Migrants** on HDX is a stale mirror (2024 only, last touched Aug 2025) and
+  missingmigrants.iom.int blocks non-browser downloads (HTTP 403). The source row's `config`
+  accepts `{"resource_url": ...}` to point at a current export once one is confirmed.
+- **Insecurity Insight** censors every coordinate for Ukraine, so it is ingested as monthly
+  counts per oblast (admin1 p-code) + national rollup; headline cards show the latest month for
+  health care, explosive weapons, education and aid workers. Oblast choropleths arrive with P4.2.

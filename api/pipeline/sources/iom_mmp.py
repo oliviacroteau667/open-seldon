@@ -1,8 +1,9 @@
 """IOM Missing Migrants Project via the HDX mirror. docs/data-sources.md#iom-missing-migrants-project
 
-Incident-level deaths and disappearances along migration routes (CC BY / CC BY-IGO on HDX).
-The HDX copy lags the IOM site by months; swap the resource URL for IOM's own export once its
-download endpoint is confirmed.
+Incident-level deaths and disappearances along migration routes (CC BY-IGO on HDX).
+The HDX copy is stale (checked 2026-10-21: it holds 2024 only, last modified Aug 2025) and
+missingmigrants.iom.int answers 403 to non-browser clients, so until a current export URL is
+confirmed the source row's config may set {"resource_url": "..."} to override the HDX resource.
 """
 from __future__ import annotations
 
@@ -78,12 +79,15 @@ class IomMmpConnector(Connector):
     kind = "points"
 
     async def fetch(self, since: datetime | None, countries: list[str] | None) -> AsyncIterator[PointEvent]:
-        meta = await self.http.get_json(CKAN, params={"id": DATASET})
-        resources = (meta.get("result") or {}).get("resources") or []
-        data_res = next((r for r in resources if str(r.get("format", "")).lower() == "csv" and "codebook" not in str(r.get("name", "")).lower()), None)
-        if not data_res:
-            return
-        resp = await self.http.get(data_res["url"])
+        url = self.config.get("resource_url")
+        if not url:
+            meta = await self.http.get_json(CKAN, params={"id": DATASET})
+            resources = (meta.get("result") or {}).get("resources") or []
+            data_res = next((r for r in resources if str(r.get("format", "")).lower() == "csv" and "codebook" not in str(r.get("name", "")).lower()), None)
+            if not data_res:
+                return
+            url = data_res["url"]
+        resp = await self.http.get(url)
         text = resp.content.decode("utf-8-sig", errors="replace")
         for row in csv.DictReader(io.StringIO(text)):
             ev = parse_row(row)

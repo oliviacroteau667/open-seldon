@@ -27,11 +27,12 @@ from pipeline.sources import AreaIndicator, Http, PointEvent, chunked
 from pipeline.sources.gdacs import GdacsConnector
 from pipeline.sources.hapi import HapiConnector
 from pipeline.sources.idmc_hdx import IdmcHdxConnector
+from pipeline.sources.insecurity_insight import InsecurityInsightConnector
 from pipeline.sources.iom_mmp import IomMmpConnector
 
 log = logging.getLogger("pipeline.run_sources")
 
-CONNECTORS = {c.slug: c for c in (GdacsConnector, HapiConnector, IdmcHdxConnector, IomMmpConnector)}
+CONNECTORS = {c.slug: c for c in (GdacsConnector, HapiConnector, IdmcHdxConnector, IomMmpConnector, InsecurityInsightConnector)}
 MIN_INTERVAL = {"hapi.humdata.org": 1.0, "www.gdacs.org": 0.3, "data.humdata.org": 0.5}
 BATCH = 500
 

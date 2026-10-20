@@ -144,6 +144,28 @@ def test_iom_mmp_bad_coordinates_become_none():
     assert ev is not None and ev.lat is None and ev.precision is None
 
 
+def test_insecurity_insight_aggregates_months_per_oblast_with_national_rollup():
+    from pipeline.sources.insecurity_insight import admin1_pcode, aggregate
+    header = ["Date", "Event Description", "Country", "Country ISO", "Admin 1", "Latitude", "Longitude", "Geo Precision",
+              "Health Workers Killed", "Health Workers Injured"]
+    rows = [
+        (datetime(2026, 9, 3), None, "Ukraine", "UKR", "Kharkiv Oblast", None, None, "censored", 1, 0),
+        (datetime(2026, 9, 20), None, "Ukraine", "UKR", "Kharkiv Oblast", None, None, "censored", 0, 2),
+        (datetime(2026, 9, 21), None, "Ukraine", "UKR", "Kyiv City", None, None, "censored", 0, 0),
+        (datetime(2026, 8, 1), None, "Ukraine", "UKR", "Sumy Oblast", None, None, "censored", 0, 1),
+        (datetime(2026, 8, 1), None, "Poland", "POL", "X", None, None, "censored", 0, 0),
+    ]
+    recs = {(r.admin_level, r.pcode, r.period_start.isoformat()): r for r in aggregate("health", header, rows, iso3_filter="UKR")}
+    kh = recs[(1, "UA63", "2026-09-01")]
+    assert kh.value == 2 and kh.extra["killed"] == 1 and kh.extra["injured"] == 2 and kh.indicator == "ii_health"
+    assert kh.period_end == date(2026, 10, 1) and kh.area_name == "Kharkiv Oblast"
+    assert recs[(1, "UA80", "2026-09-01")].value == 1
+    assert recs[(0, "UKR", "2026-09-01")].value == 3 and recs[(0, "UKR", "2026-08-01")].value == 1
+    assert (1, "UA59", "2026-08-01") in recs and not any(k[1] == "POL" for k in recs)
+    assert admin1_pcode("UKR", "Dnipropetrovsk Oblast") == "UA12" and admin1_pcode("UKR", "Kyiv Oblast") == "UA32"
+    assert admin1_pcode("UKR", "Kyiv") == "UA80" and admin1_pcode("UKR", "Nowhere") is None
+
+
 def test_idmc_row_without_id_or_date_is_skipped():
     from pipeline.sources.idmc_hdx import parse_row
     assert parse_row({"id": "", "displacement_date": "2026-10-18"}) is None

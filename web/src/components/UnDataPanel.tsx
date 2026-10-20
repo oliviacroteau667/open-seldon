@@ -54,6 +54,17 @@ function buildCards(iso3: string, s: LayersSummary) {
   const pres = (s.operational_presence ?? []).find((r) => r.iso3 === iso3);
   if (pres) cards.push({ value: num(pres.orgs), label: `Organisations present (3W) · ${pres.areas} areas`, source: `OCHA 3W via HDX HAPI · ${new Date(pres.period_start).getFullYear()}` });
 
+  // Insecurity Insight monthly national counts (coordinates are censored for Ukraine, so counts not points)
+  const month = (i: SummaryIndicator) => new Date(i.period_start).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  const health = by("ii_health");
+  if (health.length) cards.push({ value: num(health[0].value), label: `Attacks on health care · ${month(health[0])}${health[0].extra?.killed ? ` · ${health[0].extra.killed} killed` : ""}`, source: "Insecurity Insight via HDX · CC BY-SA" });
+  const explosive = by("ii_explosive");
+  if (explosive.length) cards.push({ value: num(explosive[0].value), label: `Explosive weapon incidents · ${month(explosive[0])}`, source: "Insecurity Insight via HDX · CC BY-SA" });
+  const edu = by("ii_education");
+  if (edu.length) cards.push({ value: num(edu[0].value), label: `Attacks on education · ${month(edu[0])}`, source: "Insecurity Insight via HDX · CC BY-SA" });
+  const aid = by("ii_aid");
+  if (aid.length) cards.push({ value: num(aid[0].value), label: `Aid worker incidents · ${month(aid[0])}${aid[0].extra?.killed ? ` · ${aid[0].extra.killed} killed` : ""}`, source: "Insecurity Insight via HDX · CC BY-SA" });
+
   const alerts = s.gdacs_last_30d.filter((a) => a.iso3 === iso3);
   if (alerts.length) {
     const n = alerts.reduce((a, r) => a + r.n, 0);

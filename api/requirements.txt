@@ -10,3 +10,4 @@ telethon
 sentry-sdk[fastapi]
 PyJWT[crypto]
 httpx
+openpyxl

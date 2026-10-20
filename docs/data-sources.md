@@ -171,9 +171,12 @@ A joint UN OCHA / European Commission JRC service.
 
 ### Insecurity Insight (planned, slice P4.1)
 
-- **What:** attacks on health care, aid workers, education, explosive-weapon incidents; lat/lon,
-  admin1, perpetrator, impacts. Coordinates censored in some contexts (e.g. Gaza).
-- **Access:** HDX organisation `insecurity-insight`, XLSX, weekly batches.
+- **What:** attacks on health care, aid workers, education, explosive-weapon incidents; admin1,
+  perpetrator, impacts. **For Ukraine every row's coordinates are censored** (checked 2026-10-21:
+  0 of ~10,500 rows carry lat/lon; 99% carry the oblast), so we ingest it as monthly counts per
+  oblast (admin1 p-code) plus a national rollup, not as points.
+- **Access:** HDX dataset `ukraine-data-on-attacks-on-aid-operations-education-health-and-protection`
+  (XLSX per theme, refreshed weekly); the global `sind-*` datasets cover other countries.
 - **Licence:** CC BY-SA (a few CC BY / CC BY-IGO). Share-alike applies only if a derived
   dataset is redistributed. **Attribution:** "Insecurity Insight via HDX".
 
