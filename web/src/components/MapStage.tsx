@@ -7,7 +7,7 @@ import { GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import type { FeatureCollection, Feature, Polygon, MultiPolygon, Position, GeoJsonProperties } from "geojson";
 import { feature as topoFeature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
-import type { Message, CityCluster, Layer, LayerEvent } from "@/types";
+import type { Message, CityCluster, Layer, LayerArea, LayerEvent, ChoroplethChoice } from "@/types";
 import { buildCityClusters } from "@/types";
 
 // deck.gl needs numeric colours: one per external point source, GDACS keyed by alert level
@@ -127,6 +127,28 @@ interface Props {
   onEventClick?: (ev: LayerEvent, layer: Layer) => void;
   unDataOpen?: boolean;
   onToggleUnData?: () => void;
+  areaLayer?: { choice: ChoroplethChoice; areas: LayerArea[] } | null; // admin1 choropleth from a UN data card
+  onClearAreaLayer?: () => void;
+}
+
+// Fold per-area rows (several extra_keys per p-code) into one feature per boundary
+function areaFeatures(areas: LayerArea[]): { fc: FeatureCollection<Polygon | MultiPolygon>; max: number; period: string | null; missing: number } {
+  const byPcode: Record<string, { area: LayerArea; value: number }> = {}; // (`Map` is the react-map-gl component here)
+  let missing = 0;
+  for (const a of areas) {
+    const cur = byPcode[a.pcode];
+    if (cur) cur.value += a.value ?? 0;
+    else byPcode[a.pcode] = { area: a, value: a.value ?? 0 };
+  }
+  const features: Feature<Polygon | MultiPolygon>[] = [];
+  let max = 0;
+  for (const { area, value } of Object.values(byPcode)) {
+    if (!area.geometry) { missing++; continue; }
+    max = Math.max(max, value);
+    features.push({ type: "Feature", geometry: area.geometry as Polygon | MultiPolygon, properties: { pcode: area.pcode, name: area.admin_name ?? area.area_name ?? area.pcode, value, period: area.period_start } });
+  }
+  const period = areas.length ? areas.reduce((m, a) => (a.period_start > m ? a.period_start : m), areas[0].period_start) : null;
+  return { fc: { type: "FeatureCollection", features }, max, period, missing };
 }
 
 // Ray-casting point-in-polygon (handles Polygon and MultiPolygon)
@@ -259,7 +281,7 @@ function alphaForCount(count: number, max: number): number {
   return 0.09 + Math.pow(count / max, 0.7) * 0.66;
 }
 
-export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, rightInset = 0, highlightCities, highlightRegions, flyTo, autoRotate = false, initialZoom, visibleLayers = [], onEventClick, unDataOpen = false, onToggleUnData }: Props) {
+export default function MapStage({ messages, showRegions, onToggleRegions, selectedCity, onCityClick, selectedRegion, onRegionClick, onCityRegionMap, sidebarWidth = 0, rightInset = 0, highlightCities, highlightRegions, flyTo, autoRotate = false, initialZoom, visibleLayers = [], onEventClick, unDataOpen = false, onToggleUnData, areaLayer = null, onClearAreaLayer }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isLight = useTheme().resolved === "light";
   const [geojson, setGeojson] = useState<FeatureCollection | null>(null);
@@ -372,10 +394,10 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
   const hasCityHighlight = (highlightCities?.size ?? 0) > 0;
 
   // deck.gl needs numeric colours, so mirror the theme's accent / lime here
-  const RGB = useMemo((): { accent: [number, number, number]; accentBright: [number, number, number]; lime: [number, number, number] } =>
+  const RGB = useMemo((): { accent: [number, number, number]; accentBright: [number, number, number]; lime: [number, number, number]; warn: [number, number, number] } =>
     isLight
-      ? { accent: [106, 91, 224], accentBright: [74, 59, 192], lime: [78, 154, 34] }
-      : { accent: [139, 124, 246], accentBright: [179, 168, 255], lime: [100, 184, 55] },
+      ? { accent: [106, 91, 224], accentBright: [74, 59, 192], lime: [78, 154, 34], warn: [214, 132, 16] }
+      : { accent: [139, 124, 246], accentBright: [179, 168, 255], lime: [100, 184, 55], warn: [245, 165, 36] },
   [isLight]);
 
   // Pulse clock only runs while a city is highlighted
@@ -564,10 +586,36 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
     });
   }, [visibleLayers, isLight]);
 
+  // Admin1 choropleth (UN data card → COD-AB boundaries); clicking an area shows its value in the legend
+  const [pickedArea, setPickedArea] = useState<{ name: string; value: number } | null>(null);
+  useEffect(() => setPickedArea(null), [areaLayer?.choice]);
+  const areaShape = useMemo(() => (areaLayer ? areaFeatures(areaLayer.areas) : null), [areaLayer]);
+  const choroplethLayer = useMemo(() => {
+    if (!areaShape || !areaShape.fc.features.length) return null;
+    const max = areaShape.max || 1;
+    return new GeoJsonLayer({
+      id: "choropleth",
+      data: areaShape.fc,
+      pickable: true,
+      stroked: true,
+      filled: true,
+      getFillColor: (f: Feature) => {
+        const v = Number(f.properties?.value ?? 0);
+        const a = v > 0 ? 0.12 + Math.pow(v / max, 0.6) * 0.6 : 0.03;
+        return [...RGB.warn, Math.round(a * 255)];
+      },
+      getLineColor: isLight ? [120, 90, 20, 160] : [245, 200, 120, 150],
+      lineWidthMinPixels: 1,
+      updateTriggers: { getFillColor: [max, RGB], getLineColor: [isLight] },
+      transitions: { getFillColor: 300 },
+    });
+  }, [areaShape, isLight, RGB]);
+
   const attribution = useMemo(() => {
     const parts = ["© CARTO", "© OpenStreetMap contributors", ...visibleLayers.map(({ layer }) => layer.attribution_text)];
+    if (areaLayer) parts.push(areaLayer.choice.source.split(" · ")[0], "OCHA COD-AB via HDX");
     return Array.from(new Set(parts)).join(" · ");
-  }, [visibleLayers]);
+  }, [visibleLayers, areaLayer]);
 
   const activeStyle = { color: "var(--text)", border: "1px solid var(--accent)" };
   const inactiveStyle = { color: "var(--text-3)", border: "1px solid var(--line)" };
@@ -593,11 +641,14 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         layers={(() => {
           // polygons first, then external points, then the Telegram dots and labels on top
           const dotsAt = Math.max(0, layers.findIndex((l) => l.id === "city-glow"));
-          return [...layers.slice(0, dotsAt), ...externalLayers, ...layers.slice(dotsAt), ...(ringLayer ? [ringLayer] : [])];
+          return [...layers.slice(0, dotsAt), ...(choroplethLayer ? [choroplethLayer] : []), ...externalLayers, ...layers.slice(dotsAt), ...(ringLayer ? [ringLayer] : [])];
         })()}
         getCursor={({ isDragging, isHovering }) => isDragging ? "grabbing" : isHovering ? "pointer" : "grab"}
         onClick={(info) => {
-          if (info.layer?.id?.startsWith("ext-")) {
+          if (info.layer?.id === "choropleth") {
+            const p = (info.object as Feature).properties ?? {};
+            setPickedArea({ name: String(p.name), value: Number(p.value) });
+          } else if (info.layer?.id?.startsWith("ext-")) {
             const slug = info.layer.id.slice(4);
             const vl = visibleLayers.find((v) => v.layer.slug === slug);
             if (vl) onEventClick?.(info.object as LayerEvent, vl.layer);
@@ -664,6 +715,36 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
           </button>
         )}
       </div>
+
+      {/* Choropleth legend: indicator, scale, picked area; sits above the attribution on the right */}
+      {areaLayer && areaShape && (
+        <div aria-label={`Legend: ${areaLayer.choice.label} by area`} style={{ position: "absolute", right: rightInset + 20, top: 114, zIndex: 6, transition: "right .2s", background: "var(--panel-strong)", border: "1px solid var(--border)", borderRadius: 6, padding: "10px 12px", backdropFilter: "blur(20px)", font: "400 10px 'Space Mono', monospace", color: "var(--text-3)", letterSpacing: ".04em", display: "flex", flexDirection: "column", gap: 6, width: 190 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+            <span style={{ color: "var(--text)", textTransform: "uppercase", lineHeight: 1.4, flex: 1 }}>{areaLayer.choice.label} · BY AREA</span>
+            {onClearAreaLayer && <button onClick={onClearAreaLayer} aria-label="Remove choropleth" style={{ background: "none", border: 0, color: "var(--text-3)", cursor: "pointer", font: "400 14px 'Instrument Sans', sans-serif", lineHeight: 1, padding: 0 }}>×</button>}
+          </div>
+          {areaShape.period && <span>{new Date(areaShape.period).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</span>}
+          {areaShape.fc.features.length === 0 ? (
+            <span style={{ color: "var(--warn)" }}>{areaLayer.areas.length ? "Boundaries not loaded yet" : "No area values"}</span>
+          ) : (
+            <>
+              <div style={{ display: "flex", height: 8, borderRadius: 2, overflow: "hidden" }}>
+                {[0.12, 0.27, 0.42, 0.57, 0.72].map((a, i) => (
+                  <div key={i} style={{ flex: 1, background: `rgba(${RGB.warn.join(",")},${a})` }} />
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>0</span>
+                <span>{Math.round(areaShape.max).toLocaleString("en-GB")}</span>
+              </div>
+              <span style={{ color: pickedArea ? "var(--text)" : "var(--text-4)", lineHeight: 1.4 }}>
+                {pickedArea ? `${pickedArea.name}: ${Math.round(pickedArea.value).toLocaleString("en-GB")}` : "Click an area for its value"}
+              </span>
+              {areaShape.missing > 0 && <span style={{ color: "var(--text-4)" }}>{areaShape.missing} areas without boundaries</span>}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Legend */}
       {showRegions && (

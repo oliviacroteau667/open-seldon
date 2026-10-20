@@ -23,7 +23,8 @@ from datetime import datetime, timedelta, timezone
 import asyncpg
 
 from modules.dbcreds import resolve_postgres_dsn
-from pipeline.sources import AreaIndicator, Http, PointEvent, chunked
+from pipeline.sources import AdminArea, AreaIndicator, Http, PointEvent, chunked
+from pipeline.sources.cod_ab import CodAbConnector
 from pipeline.sources.gdacs import GdacsConnector
 from pipeline.sources.hapi import HapiConnector
 from pipeline.sources.idmc_hdx import IdmcHdxConnector
@@ -32,7 +33,12 @@ from pipeline.sources.iom_mmp import IomMmpConnector
 
 log = logging.getLogger("pipeline.run_sources")
 
-CONNECTORS = {c.slug: c for c in (GdacsConnector, HapiConnector, IdmcHdxConnector, IomMmpConnector, InsecurityInsightConnector)}
+CONNECTORS = {c.slug: c for c in (GdacsConnector, HapiConnector, IdmcHdxConnector, IomMmpConnector, InsecurityInsightConnector, CodAbConnector)}
+COUNT_SQL = {
+    "points": "SELECT COUNT(*) FROM external_events WHERE source_slug = $1",
+    "areas": "SELECT COUNT(*) FROM area_indicators WHERE source_slug = $1",
+    "boundaries": "SELECT COUNT(*) FROM admin_areas WHERE source_slug = $1",
+}
 MIN_INTERVAL = {"hapi.humdata.org": 1.0, "www.gdacs.org": 0.3, "data.humdata.org": 0.5}
 BATCH = 500
 
@@ -84,6 +90,22 @@ async def upsert_areas(conn: asyncpg.Connection, slug: str, rows: list[AreaIndic
     return len(rows)
 
 
+async def upsert_boundaries(conn: asyncpg.Connection, slug: str, rows: list[AdminArea]) -> int:
+    await conn.executemany(
+        """
+        INSERT INTO admin_areas (pcode, iso3, admin_level, name, parent_pcode, centroid_lat, centroid_lon, geometry, source_slug, fetched_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,NOW())
+        ON CONFLICT (pcode) DO UPDATE SET
+            iso3 = EXCLUDED.iso3, admin_level = EXCLUDED.admin_level, name = EXCLUDED.name, parent_pcode = EXCLUDED.parent_pcode,
+            centroid_lat = EXCLUDED.centroid_lat, centroid_lon = EXCLUDED.centroid_lon, geometry = EXCLUDED.geometry,
+            source_slug = EXCLUDED.source_slug, fetched_at = NOW()
+        """,
+        [(r.pcode, r.iso3, r.admin_level, r.name, r.parent_pcode, r.centroid_lat, r.centroid_lon,
+          json.dumps(r.geometry) if r.geometry is not None else None, slug) for r in rows],
+    )
+    return len(rows)
+
+
 async def run_source(pool: asyncpg.Pool, http: Http, source: asyncpg.Record, since_override: datetime | None, sample: bool) -> dict:
     slug = source["slug"]
     cls = CONNECTORS.get(slug)
@@ -110,7 +132,7 @@ async def run_source(pool: asyncpg.Pool, http: Http, source: asyncpg.Record, sin
             result["seen"] += 1
             if sample:
                 if result["seen"] <= 5:
-                    print(json.dumps(rec.__dict__, default=str)[:600])
+                    print(json.dumps({k: v for k, v in rec.__dict__.items() if k != "geometry"}, default=str)[:600])
                 if result["seen"] >= 50:
                     break
                 continue
@@ -127,9 +149,7 @@ async def run_source(pool: asyncpg.Pool, http: Http, source: asyncpg.Record, sin
     finally:
         if not sample:
             async with pool.acquire() as conn:
-                count = await conn.fetchval(
-                    "SELECT COUNT(*) FROM external_events WHERE source_slug = $1" if cls.kind == "points"
-                    else "SELECT COUNT(*) FROM area_indicators WHERE source_slug = $1", slug)
+                count = await conn.fetchval(COUNT_SQL.get(cls.kind, COUNT_SQL["points"]), slug)
                 await conn.execute(
                     "UPDATE source_runs SET finished_at = NOW(), ok = $2, records_seen = $3, records_upserted = $4, error = $5 WHERE id = $1",
                     run_id, result["ok"], result["seen"], result["upserted"], result["error"])
@@ -146,6 +166,8 @@ async def _flush(pool: asyncpg.Pool, slug: str, batch: list) -> int:
         async with conn.transaction():
             if isinstance(batch[0], PointEvent):
                 return await upsert_points(conn, slug, batch)
+            if isinstance(batch[0], AdminArea):
+                return await upsert_boundaries(conn, slug, batch)
             return await upsert_areas(conn, slug, batch)
 
 

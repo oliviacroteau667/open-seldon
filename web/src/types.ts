@@ -66,6 +66,39 @@ export interface LayerEventsResponse {
   events: LayerEvent[];
 }
 
+// One admin area's value for an indicator, joined to its COD-AB boundary when loaded
+export interface LayerArea {
+  pcode: string;
+  iso3: string;
+  admin_level: number;
+  area_name: string | null;
+  admin_name: string | null;
+  period_start: string;
+  period_end: string | null;
+  value: number | null;
+  value_text: string | null;
+  extra: Record<string, unknown>;
+  extra_key: string;
+  centroid_lat: number | null;
+  centroid_lon: number | null;
+  geometry: { type: "Polygon" | "MultiPolygon"; coordinates: unknown } | null;
+}
+
+export interface LayerAreasResponse {
+  layer: Pick<Layer, "slug" | "name" | "attribution_text" | "licence_id" | "last_success_at">;
+  indicator: string;
+  areas: LayerArea[];
+}
+
+// A choropleth the user asked for from a UN data card
+export interface ChoroplethChoice {
+  slug: string;
+  indicator: string;
+  iso3: string;
+  label: string;
+  source: string;
+}
+
 export interface SummaryIndicator {
   iso3: string;
   indicator: string;

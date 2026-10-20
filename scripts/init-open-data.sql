@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS admin_areas (
     fetched_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE admin_areas ADD COLUMN IF NOT EXISTS source_slug TEXT;  -- which boundary source loaded the row
 CREATE INDEX IF NOT EXISTS idx_admin_areas_iso3_level ON admin_areas (iso3, admin_level);
 
 CREATE TABLE IF NOT EXISTS source_runs (

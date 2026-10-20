@@ -166,6 +166,30 @@ def test_insecurity_insight_aggregates_months_per_oblast_with_national_rollup():
     assert admin1_pcode("UKR", "Kyiv") == "UA80" and admin1_pcode("UKR", "Nowhere") is None
 
 
+def test_simplify_geometry_drops_collinear_points_and_keeps_rings_closed():
+    from pipeline.sources import simplify_geometry
+    square = [[0, 0], [0.5, 0.0001], [1, 0], [1, 1], [0, 1], [0, 0]]
+    out = simplify_geometry({"type": "Polygon", "coordinates": [square]}, tol=0.01)
+    assert out["type"] == "Polygon" and out["coordinates"][0] == [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+    sliver = [[0, 0], [0.001, 0], [0.001, 0.001], [0, 0]]
+    multi = simplify_geometry({"type": "MultiPolygon", "coordinates": [[square], [sliver]]}, tol=0.01)
+    assert multi["type"] == "Polygon"  # the sliver collapsed, single polygon remains
+    assert simplify_geometry({"type": "Point", "coordinates": [0, 0]}) is None
+
+
+def test_cod_ab_feature_parses_pcode_name_and_centroid():
+    from pipeline.sources.cod_ab import parse_feature
+    f = {"type": "Feature", "properties": {"adm1_name": "Anenii Noi", "adm1_pcode": "MD001", "adm0_pcode": "MD",
+                                           "center_lat": 46.9188, "center_lon": 29.2487},
+         "geometry": {"type": "Polygon", "coordinates": [[[29.0, 46.8], [29.5, 46.8], [29.5, 47.1], [29.0, 47.1], [29.0, 46.8]]]}}
+    a = parse_feature(f, "MDA", 1)
+    assert a.pcode == "MD001" and a.name == "Anenii Noi" and a.parent_pcode == "MD" and a.iso3 == "MDA" and a.admin_level == 1
+    assert (a.centroid_lat, a.centroid_lon) == (46.9188, 29.2487) and a.geometry["type"] == "Polygon"
+    nolat = parse_feature({**f, "properties": {"adm1_pcode": "X1", "adm1_name": "X"}}, "MDA", 1)
+    assert nolat.centroid_lat == 46.95 and nolat.centroid_lon == 29.25
+    assert parse_feature({"type": "Feature", "properties": {}, "geometry": None}, "MDA", 1) is None
+
+
 def test_idmc_row_without_id_or_date_is_skipped():
     from pipeline.sources.idmc_hdx import parse_row
     assert parse_row({"id": "", "displacement_date": "2026-10-18"}) is None

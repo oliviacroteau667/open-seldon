@@ -64,6 +64,70 @@ class AreaIndicator:
     extra_key: str = ""
 
 
+@dataclass
+class AdminArea:
+    pcode: str
+    iso3: str
+    admin_level: int
+    name: str
+    parent_pcode: str | None = None
+    centroid_lat: float | None = None
+    centroid_lon: float | None = None
+    geometry: dict | None = None  # simplified GeoJSON geometry
+
+
+def _rdp(points: list, tol: float) -> list:
+    """Ramer–Douglas–Peucker on a list of [lon, lat]; iterative so long rings cannot blow the stack."""
+    if len(points) < 3:
+        return points
+    keep = [False] * len(points)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(points) - 1)]
+    while stack:
+        a, b = stack.pop()
+        ax, ay = points[a]
+        bx, by = points[b]
+        dx, dy = bx - ax, by - ay
+        norm = (dx * dx + dy * dy) ** 0.5
+        best, best_i = 0.0, -1
+        for i in range(a + 1, b):
+            px, py = points[i]
+            d = abs(dy * px - dx * py + bx * ay - by * ax) / norm if norm else ((px - ax) ** 2 + (py - ay) ** 2) ** 0.5
+            if d > best:
+                best, best_i = d, i
+        if best > tol and best_i > 0:
+            keep[best_i] = True
+            stack.append((a, best_i))
+            stack.append((best_i, b))
+    return [p for p, k in zip(points, keep) if k]
+
+
+def simplify_geometry(geom: dict, tol: float = 0.005, precision: int = 4) -> dict | None:
+    """Simplify a GeoJSON Polygon/MultiPolygon for web display; rings that collapse are dropped."""
+    def ring(r):
+        s = _rdp([[float(x), float(y)] for x, y in r], tol)
+        if len(s) < 4:
+            return None
+        if s[0] != s[-1]:
+            s.append(s[0])
+        return [[round(x, precision), round(y, precision)] for x, y in s]
+
+    def polygon(rings):
+        out = [r for r in (ring(x) for x in rings) if r]
+        return out if out and out[0] else None
+
+    t = geom.get("type")
+    if t == "Polygon":
+        p = polygon(geom["coordinates"])
+        return {"type": "Polygon", "coordinates": p} if p else None
+    if t == "MultiPolygon":
+        polys = [p for p in (polygon(x) for x in geom["coordinates"]) if p]
+        if not polys:
+            return None
+        return {"type": "MultiPolygon", "coordinates": polys} if len(polys) > 1 else {"type": "Polygon", "coordinates": polys[0]}
+    return None
+
+
 class Connector:
     slug: str = ""
     kind: str = "points"  # points | areas | documents | boundaries

@@ -1,9 +1,9 @@
 "use client";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import type { Layer, LayerEvent, MapHighlight, Message, PlaceRef } from "@/types";
+import type { ChoroplethChoice, Layer, LayerArea, LayerEvent, MapHighlight, Message, PlaceRef } from "@/types";
 import { CATEGORIES, catKeysForMessage } from "@/types";
-import { fetchDashboard, fetchLayerEvents, fetchLayers } from "@/lib/api";
+import { fetchDashboard, fetchLayerAreas, fetchLayerEvents, fetchLayers } from "@/lib/api";
 import LayerDetailCard from "./LayerDetailCard";
 import UnDataPanel from "./UnDataPanel";
 import { launch, type LaunchHandle } from "@/lib/brand";
@@ -109,6 +109,19 @@ export default function Dashboard() {
     [layers, layersOn, layerEvents]
   );
   const onEventClick = useCallback((event: LayerEvent, layer: Layer) => setSelectedEvent({ event, layer }), []);
+
+  // Choropleth picked from a UN data card: admin1 values joined to COD-AB boundaries
+  const [choropleth, setChoropleth] = useState<ChoroplethChoice | null>(null);
+  const [choroplethAreas, setChoroplethAreas] = useState<LayerArea[]>([]);
+  useEffect(() => {
+    if (!choropleth) { setChoroplethAreas([]); return; }
+    let live = true;
+    fetchLayerAreas(choropleth.slug, choropleth.indicator, choropleth.iso3)
+      .then((r) => { if (live) setChoroplethAreas(r.areas); })
+      .catch((e) => { console.warn("choropleth unavailable", e); if (live) setChoroplethAreas([]); });
+    return () => { live = false; };
+  }, [choropleth]);
+  const areaLayer = useMemo(() => (choropleth ? { choice: choropleth, areas: choroplethAreas } : null), [choropleth, choroplethAreas]);
 
   // Seldon → map: highlighted places and fly-to target
   const [mapHighlight, setMapHighlight] = useState<MapHighlight | null>(null);
@@ -369,12 +382,14 @@ export default function Dashboard() {
           onEventClick={onEventClick}
           unDataOpen={unDataOpen}
           onToggleUnData={() => setUnDataOpen((v) => !v)}
+          areaLayer={areaLayer}
+          onClearAreaLayer={() => setChoropleth(null)}
         />
 
         {/* UN data cards (HDX HAPI indicators) and the external-event detail card */}
         {(unDataOpen || selectedEvent) && (
           <div style={{ position: "absolute", left: leftPad, top: showRegions ? 200 : 114, zIndex: 11, display: "flex", flexDirection: "column", gap: 10, transition: overlayTransition }}>
-            {unDataOpen && <UnDataPanel onClose={() => setUnDataOpen(false)} />}
+            {unDataOpen && <UnDataPanel onClose={() => setUnDataOpen(false)} choropleth={choropleth} onChoropleth={setChoropleth} />}
             {selectedEvent && <LayerDetailCard event={selectedEvent.event} layer={selectedEvent.layer} onClose={() => setSelectedEvent(null)} />}
           </div>
         )}

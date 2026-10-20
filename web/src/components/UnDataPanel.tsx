@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
-import type { LayersSummary, SummaryIndicator } from "@/types";
+import type { ChoroplethChoice, LayersSummary, SummaryIndicator } from "@/types";
 import { fetchLayersSummary } from "@/lib/api";
 
 const SANS = "'Instrument Sans', sans-serif";
@@ -25,7 +25,8 @@ function period(i: SummaryIndicator): string {
 function buildCards(iso3: string, s: LayersSummary) {
   const rows = s.indicators.filter((i) => i.iso3 === iso3);
   const by = (ind: string, pick?: (i: SummaryIndicator) => boolean) => rows.filter((i) => i.indicator === ind && (!pick || pick(i)));
-  const cards: { value: string; label: string; source: string }[] = [];
+  // `map` marks cards whose indicator exists per admin1 area and can be drawn as a choropleth
+  const cards: { value: string; label: string; source: string; map?: { slug: string; indicator: string } }[] = [];
 
   const ipc = by("ipc_phase", (i) => i.extra_key.startsWith("3+") || i.value_text === "3+");
   if (ipc.length) cards.push({ value: num(ipc[0].value), label: "IPC phase 3+ population", source: `IPC via HDX HAPI · ${period(ipc[0])}` });
@@ -48,7 +49,7 @@ function buildCards(iso3: string, s: LayersSummary) {
   if (conflict.length) {
     const total = conflict.reduce((a, i) => a + (i.value ?? 0), 0);
     const fat = conflict.reduce((a, i) => a + (Number(i.extra?.fatalities) || 0), 0);
-    cards.push({ value: num(total), label: `Conflict events · ${fat ? `${num(fat)} fatalities` : period(conflict[0])}`, source: `ACLED via HDX HAPI · ${period(conflict[0])} · accessed ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}` });
+    cards.push({ value: num(total), label: `Conflict events · ${fat ? `${num(fat)} fatalities` : period(conflict[0])}`, source: `ACLED via HDX HAPI · ${period(conflict[0])} · accessed ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`, map: { slug: "hapi", indicator: "conflict_events" } });
   }
 
   const pres = (s.operational_presence ?? []).find((r) => r.iso3 === iso3);
@@ -57,13 +58,14 @@ function buildCards(iso3: string, s: LayersSummary) {
   // Insecurity Insight monthly national counts (coordinates are censored for Ukraine, so counts not points)
   const month = (i: SummaryIndicator) => new Date(i.period_start).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
   const health = by("ii_health");
-  if (health.length) cards.push({ value: num(health[0].value), label: `Attacks on health care · ${month(health[0])}${health[0].extra?.killed ? ` · ${health[0].extra.killed} killed` : ""}`, source: "Insecurity Insight via HDX · CC BY-SA" });
+  const II = "Insecurity Insight via HDX · CC BY-SA";
+  if (health.length) cards.push({ value: num(health[0].value), label: `Attacks on health care · ${month(health[0])}${health[0].extra?.killed ? ` · ${health[0].extra.killed} killed` : ""}`, source: II, map: { slug: "insecurity_insight", indicator: "ii_health" } });
   const explosive = by("ii_explosive");
-  if (explosive.length) cards.push({ value: num(explosive[0].value), label: `Explosive weapon incidents · ${month(explosive[0])}`, source: "Insecurity Insight via HDX · CC BY-SA" });
+  if (explosive.length) cards.push({ value: num(explosive[0].value), label: `Explosive weapon incidents · ${month(explosive[0])}`, source: II, map: { slug: "insecurity_insight", indicator: "ii_explosive" } });
   const edu = by("ii_education");
-  if (edu.length) cards.push({ value: num(edu[0].value), label: `Attacks on education · ${month(edu[0])}`, source: "Insecurity Insight via HDX · CC BY-SA" });
+  if (edu.length) cards.push({ value: num(edu[0].value), label: `Attacks on education · ${month(edu[0])}`, source: II, map: { slug: "insecurity_insight", indicator: "ii_education" } });
   const aid = by("ii_aid");
-  if (aid.length) cards.push({ value: num(aid[0].value), label: `Aid worker incidents · ${month(aid[0])}${aid[0].extra?.killed ? ` · ${aid[0].extra.killed} killed` : ""}`, source: "Insecurity Insight via HDX · CC BY-SA" });
+  if (aid.length) cards.push({ value: num(aid[0].value), label: `Aid worker incidents · ${month(aid[0])}${aid[0].extra?.killed ? ` · ${aid[0].extra.killed} killed` : ""}`, source: II, map: { slug: "insecurity_insight", indicator: "ii_aid" } });
 
   const alerts = s.gdacs_last_30d.filter((a) => a.iso3 === iso3);
   if (alerts.length) {
@@ -74,7 +76,13 @@ function buildCards(iso3: string, s: LayersSummary) {
   return cards;
 }
 
-export default function UnDataPanel({ onClose }: { onClose: () => void }) {
+interface Props {
+  onClose: () => void;
+  choropleth?: ChoroplethChoice | null;
+  onChoropleth?: (choice: ChoroplethChoice | null) => void;
+}
+
+export default function UnDataPanel({ onClose, choropleth, onChoropleth }: Props) {
   const [summary, setSummary] = useState<LayersSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [iso3, setIso3] = useState("UKR");
@@ -102,13 +110,25 @@ export default function UnDataPanel({ onClose }: { onClose: () => void }) {
       {summary && cards.length === 0 && <div style={{ color: "var(--text-3)", marginTop: 10 }}>No indicators yet for {NAMES[iso3] ?? iso3}. The nightly HDX HAPI pull fills these in.</div>}
       {cards.length > 0 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, marginTop: 10 }}>
-          {cards.map((c) => (
-            <div key={c.label} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "9px 10px", minWidth: 0 }}>
-              <div style={{ font: `600 19px ${SANS}`, fontVariantNumeric: "tabular-nums" }}>{c.value}</div>
-              <div style={{ font: `400 9px ${MONO}`, letterSpacing: ".08em", color: "var(--text-3)", textTransform: "uppercase", marginTop: 2 }}>{c.label}</div>
-              <div style={{ font: `400 8.5px ${MONO}`, color: "var(--text-4)", marginTop: 6, lineHeight: 1.4 }}>{c.source}</div>
-            </div>
-          ))}
+          {cards.map((c) => {
+            const active = !!c.map && choropleth?.slug === c.map.slug && choropleth?.indicator === c.map.indicator && choropleth?.iso3 === iso3;
+            return (
+              <div key={c.label} style={{ background: "var(--card)", border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`, borderRadius: 8, padding: "9px 10px", minWidth: 0, display: "flex", flexDirection: "column" }}>
+                <div style={{ font: `600 19px ${SANS}`, fontVariantNumeric: "tabular-nums" }}>{c.value}</div>
+                <div style={{ font: `400 9px ${MONO}`, letterSpacing: ".08em", color: "var(--text-3)", textTransform: "uppercase", marginTop: 2 }}>{c.label}</div>
+                <div style={{ font: `400 8.5px ${MONO}`, color: "var(--text-4)", marginTop: 6, lineHeight: 1.4, flex: 1 }}>{c.source}</div>
+                {c.map && onChoropleth && (
+                  <button
+                    onClick={() => onChoropleth(active ? null : { ...c.map!, iso3, label: c.label.split(" · ")[0], source: c.source })}
+                    aria-pressed={active}
+                    style={{ marginTop: 7, alignSelf: "flex-start", font: `400 9px ${MONO}`, letterSpacing: ".08em", padding: "3px 7px", borderRadius: 4, cursor: "pointer", border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`, background: active ? "var(--accent-tint)" : "transparent", color: active ? "var(--text)" : "var(--text-3)" }}
+                  >
+                    {active ? "ON MAP" : "SHOW BY AREA"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

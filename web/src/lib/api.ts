@@ -1,4 +1,4 @@
-import type { DashboardData, Layer, LayerEventsResponse, LayersSummary } from "@/types";
+import type { DashboardData, Layer, LayerAreasResponse, LayerEventsResponse, LayersSummary } from "@/types";
 
 export async function fetchDashboard(): Promise<DashboardData> {
   const res = await fetch(`/api/dashboard`);
@@ -16,6 +16,13 @@ export async function fetchLayerEvents(slug: string, sinceDays = 90): Promise<La
   const since = new Date(Date.now() - sinceDays * 86400000).toISOString();
   const res = await fetch(`/api/layers/${encodeURIComponent(slug)}/events?since=${encodeURIComponent(since)}`);
   if (!res.ok) throw new Error(`layer ${slug} fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchLayerAreas(slug: string, indicator: string, iso3: string, adminLevel = 1): Promise<LayerAreasResponse> {
+  const q = new URLSearchParams({ indicator, iso3, admin_level: String(adminLevel) });
+  const res = await fetch(`/api/layers/${encodeURIComponent(slug)}/areas?${q}`);
+  if (!res.ok) throw new Error(`layer ${slug} areas fetch failed: ${res.status}`);
   return res.json();
 }
 
