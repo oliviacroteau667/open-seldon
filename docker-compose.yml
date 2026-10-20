@@ -15,6 +15,7 @@ services:
       - ./scripts/init-authentik.sh:/docker-entrypoint-initdb.d/20-init-authentik.sh:ro
       - ./scripts/init-auth-schema.sql:/docker-entrypoint-initdb.d/30-auth-schema.sql:ro
       - ./scripts/init-channels.sql:/docker-entrypoint-initdb.d/40-channels.sql:ro
+      - ./scripts/init-open-data.sql:/docker-entrypoint-initdb.d/50-open-data.sql:ro
     logging:
       driver: json-file
       options:
