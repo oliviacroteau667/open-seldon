@@ -45,7 +45,7 @@ async def list_layers(pool: asyncpg.Pool = Depends(_get_pool)):
 
 @router.get("/layers/summary")
 async def layers_summary(iso3: str = Query("UKR,POL,MDA,ROU,SVK,HUN"), pool: asyncpg.Pool = Depends(_get_pool)):
-    """Latest headline values per country: one row per (iso3, indicator) at admin0, plus GDACS counts."""
+    """Latest headline values per country: one row per (iso3, indicator) at admin0."""
     codes = [c.strip().upper() for c in iso3.split(",") if c.strip()][:12]
     async with pool.acquire() as conn:
         indicators = await conn.fetch(
@@ -88,21 +88,11 @@ async def layers_summary(iso3: str = Query("UKR,POL,MDA,ROU,SVK,HUN"), pool: asy
             """,
             codes,
         )
-        alerts = await conn.fetch(
-            """
-            SELECT iso3, alert_level, COUNT(*) AS n
-            FROM external_events
-            WHERE source_slug = 'gdacs' AND iso3 = ANY($1::text[]) AND occurred_at > NOW() - INTERVAL '30 days'
-            GROUP BY iso3, alert_level
-            """,
-            codes,
-        )
     return {
         "countries": codes,
         "indicators": [_row(r) for r in indicators if r["indicator"] != "refugees"],
         "refugees": [_row(r) for r in refugees],
         "operational_presence": [_row(r) for r in presence],
-        "gdacs_last_30d": [_row(r) for r in alerts],
     }
 
 

@@ -117,12 +117,10 @@ export interface LayersSummary {
   indicators: SummaryIndicator[];
   refugees: { iso3: string; period_start: string; total: number | null; from_ukraine: number | null; others_of_concern: number | null }[];
   operational_presence: { iso3: string; period_start: string; orgs: number; areas: number }[];
-  gdacs_last_30d: { iso3: string; alert_level: string | null; n: number }[];
 }
 
 // One colour per point source so layers read apart from the lime Telegram dots
 export const LAYER_COLORS: Record<string, string> = {
-  gdacs: "var(--warn)",
   idmc_hdx: "var(--cat-legal)",
   insecurity_insight: "var(--cat-safety)",
   iom_mmp: "var(--cat-employment)",

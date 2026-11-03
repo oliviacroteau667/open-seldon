@@ -25,7 +25,7 @@ their terms are catalogued in `data-sources.md`.
 | Question | Decision |
 |---|---|
 | Initial country set | UKR, POL, MDA, ROU, SVK, HUN (the corridor the Telegram channels cover); configurable per source via `sources.countries` |
-| GDACS scope | global, filtered by the viewport in the UI; default **on** |
+| GDACS | **removed 2026-11-03** — a worldwide natural-hazard feed, off-topic for a conflict corridor view; the connector is gone and the source row deleted |
 | ACLED-derived counts via HAPI | included, with "ACLED" attribution and access date; raw ACLED never ingested |
 | WHO Disease Outbreak News | skipped in v1 (CC BY-NC-SA) |
 | ReliefWeb appname | request drafted in `reliefweb-appname-request.md`; slice P4.3 waits for approval |
@@ -83,14 +83,12 @@ above. The runner `pipeline/run_sources.py`:
 - is invoked by the daily GitHub Actions job right after `pipeline.run_daily`.
 
 Change detection: HDX-backed connectors call CKAN `package_show` first and skip the download when
-`last_modified` is unchanged (stored in `sources.config.last_modified`). GDACS uses
-`geteventlist/latest?datemodified=<last_success_at>`.
+`last_modified` is unchanged (stored in `sources.config.last_modified`).
 
 ### Connectors by slice
 
 | Slice | Connector | Kind | Source of truth |
 |---|---|---|---|
-| P4.0 | `gdacs` | points | GDACS API `latest` + `search` backfill (90 days) |
 | P4.0 | `hapi` (ipc, idps*, refugees, operational_presence, inform_risk, food_prices, conflict_events) | areas | HAPI v2 for the country set; *IDPs only where the upstream HDX dataset is CC BY |
 | P4.1 | `idmc_hdx` | points | HDX `<iso3>-idmc-idu-events` CSVs |
 | P4.1 | `iom_mmp` | points | Missing Migrants CSV (Europe + Mediterranean routes) |
@@ -117,9 +115,9 @@ Change detection: HDX-backed connectors call CKAN `package_show` first and skip 
 
 - **Sidebar → Layers section** under the channel list: one row per source — toggle, name, "as of
   <date>", licence badge; hovering/expanding shows `attribution_text` and the source link.
-  GDACS defaults on, others off; visibility persisted in `localStorage`.
+  All off by default; visibility persisted in `localStorage`.
 - **Map:** one deck.gl `ScatterplotLayer` per visible point source with a fixed colour per source
-  (GDACS alert colours green/orange/red override), picking enabled; clicking opens a detail card
+  picking enabled; clicking opens a detail card
   (title, date, source line, "Open at <provider>" link). HAPI indicators render as a
   `GeoJsonLayer` choropleth with a legend once `admin_areas` exist (P4.2); until then the
   "UN data" cards show the latest indicator values per country.
@@ -138,7 +136,7 @@ choropleth, change strip, phone sheet).
   source marks `last_error` and the run still succeeds unless every source failed.
 - `/health` gains `layers: {slug: last_success_at}`; the daily audit can assert freshness.
 - Cost: no model calls except ReliefWeb geocoding (Gemini Flash); storage tens of MB.
-- Backfill: `python -m pipeline.run_sources --source gdacs --since 2026-01-01`.
+- Backfill: `python -m pipeline.run_sources --source idmc_hdx --since 2026-01-01`.
 
 ## Testing
 
@@ -150,8 +148,9 @@ choropleth, change strip, phone sheet).
 
 ## Delivery slices
 
-1. **P4.0 Foundation + GDACS + HAPI ingestion** — schema, connector framework, `run_sources`,
-   `/layers*`, sidebar toggles, GDACS points, attribution strip, UN data cards.
+1. **P4.0 Foundation + HAPI ingestion** — schema, connector framework, `run_sources`,
+   `/layers*`, sidebar toggles, attribution strip, UN data cards. (Built against GDACS as the
+   proving feed; GDACS itself was removed on 2026-11-03.)
 2. **P4.1 Displacement and migration points** — IDMC via HDX, IOM Missing Migrants, Insecurity Insight.
 3. **P4.2 Boundaries and choropleths** — COD-AB loader, HAPI indicators on the map, legend.
 4. **P4.3 ReliefWeb** — after appname approval.
@@ -161,7 +160,7 @@ choropleth, change strip, phone sheet).
 
 | Slice | State | Notes |
 |---|---|---|
-| P4.0 | **live** | GDACS (≈4.4k events, 90-day backfill) and HAPI (≈149k area rows for UKR/POL/MDA/ROU/SVK/HUN) run nightly after the Telegram pipeline. Sidebar layer toggles, GDACS points on the globe, UN DATA panel and attribution strip are deployed. |
+| P4.0 | **live** | HAPI (≈149k area rows for UKR/POL/MDA/ROU/SVK/HUN) runs nightly after the Telegram pipeline. Sidebar layer toggles, UN DATA panel and attribution strip are deployed. GDACS was dropped on 2026-11-03 as off-topic. |
 | P4.1 | **live** | `idmc_hdx` (1,146 displacement events since Jan 2025), `iom_mmp` (2,776 incidents — HDX mirror holds 2024 only, see below) and `insecurity_insight` (monthly counts per oblast, four themes) enabled on the server. |
 | P4.2 | **live** | `cod_ab` loaded admin0 + admin1 for all six countries (122 areas, geometry simplified ~7×). UN data cards for Insecurity Insight themes and ACLED conflict events have **Show by area**, which draws an oblast/voivodeship choropleth at one period with a legend, click-to-read values and attribution. |
 | P4.3 | waiting on Olivia | Submit `docs/reliefweb-appname-request.md` to ReliefWeb; connector is ~1 hour once the appname is approved. |

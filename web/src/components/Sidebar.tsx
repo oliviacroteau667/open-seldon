@@ -204,7 +204,7 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
         })}
       </div>
 
-      {/* External open-data layers (GDACS, HDX, …): toggle, freshness, licence hint */}
+      {/* External open-data layers (IDMC, IOM, …): toggle, freshness, licence hint */}
       {layers.filter((l) => l.kind === "points").length > 0 && (
         <>
           <div style={{ display: "flex", alignItems: "center", padding: "14px 8px 8px", whiteSpace: "nowrap" }}>

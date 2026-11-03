@@ -10,14 +10,12 @@ import type { Topology, GeometryCollection } from "topojson-specification";
 import type { Message, CityCluster, Layer, LayerArea, LayerEvent, ChoroplethChoice } from "@/types";
 import { buildCityClusters } from "@/types";
 
-// deck.gl needs numeric colours: one per external point source, GDACS keyed by alert level
+// deck.gl needs numeric colours: one per external point source
 const LAYER_RGB: Record<string, [number, number, number]> = {
-  gdacs: [245, 165, 36],
   idmc_hdx: [79, 140, 255],
   insecurity_insight: [244, 114, 182],
   iom_mmp: [34, 193, 176],
 };
-const ALERT_RGB: Record<string, [number, number, number]> = { red: [232, 85, 62], orange: [245, 165, 36], green: [95, 208, 104] };
 
 export interface VisibleLayer { layer: Layer; events: LayerEvent[] }
 import { useTheme } from "./ThemeProvider";
@@ -566,9 +564,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
   // External point layers sit under the Telegram dots: one scatter layer per visible source
   const externalLayers = useMemo(() => {
     return visibleLayers.map(({ layer, events }) => {
-      const base = LAYER_RGB[layer.slug] ?? [154, 147, 184];
-      const color = (ev: LayerEvent): [number, number, number] =>
-        layer.slug === "gdacs" && ev.alert_level && ALERT_RGB[ev.alert_level] ? ALERT_RGB[ev.alert_level] : base;
+      const color: [number, number, number] = LAYER_RGB[layer.slug] ?? [154, 147, 184];
       return new ScatterplotLayer<LayerEvent>({
         id: `ext-${layer.slug}`,
         data: events.filter((e) => e.lat != null && e.lon != null),
@@ -576,7 +572,7 @@ export default function MapStage({ messages, showRegions, onToggleRegions, selec
         getPosition: (d) => [d.lon as number, d.lat as number, 0],
         radiusUnits: "pixels",
         getRadius: (d) => (d.alert_level === "red" ? 7 : d.alert_level === "orange" ? 6 : 5),
-        getFillColor: (d) => [...color(d), 215],
+        getFillColor: [...color, 215],
         getLineColor: isLight ? [22, 18, 43, 190] : [255, 255, 255, 170],
         stroked: true,
         lineWidthUnits: "pixels",

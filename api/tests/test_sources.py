@@ -2,51 +2,10 @@
 from datetime import date, datetime, timezone
 
 from pipeline.sources import parse_date, parse_dt
-from pipeline.sources.gdacs import parse_feature
 from pipeline.sources.hapi import (
     app_identifier, parse_conflict_events, parse_food_prices, parse_food_security, parse_national_risk,
     parse_operational_presence, parse_refugees,
 )
-
-GDACS_FEATURE = {
-    "type": "Feature",
-    "geometry": {"type": "Point", "coordinates": [25.6, 48.9]},
-    "properties": {
-        "eventtype": "FL", "eventid": 1012345, "episodeid": 7, "eventname": "", "name": "Flood in Ukraine",
-        "description": "Orange flood alert in Ukraine", "alertlevel": "Orange", "alertscore": 2,
-        "country": "Ukraine", "iso3": "UKR", "affectedcountries": [{"iso3": "UKR", "countryname": "Ukraine"}],
-        "fromdate": "2026-10-18T00:00:00", "todate": "2026-10-21T00:00:00", "datemodified": "2026-10-20T06:12:00",
-        "source": "GLOFAS", "severitydata": {"severity": 210000, "severitytext": "Magnitude 210000 people affected", "severityunit": "people"},
-        "iscurrent": "true", "url": {"report": "https://www.gdacs.org/report.aspx?eventid=1012345&eventtype=FL"},
-    },
-}
-
-
-def test_gdacs_feature_parses_to_point_event():
-    ev = parse_feature(GDACS_FEATURE)
-    assert ev is not None
-    assert ev.source_record_id == "FL-1012345"
-    assert ev.title.startswith("Flood")
-    assert (ev.lon, ev.lat) == (25.6, 48.9)
-    assert ev.iso3 == "UKR"
-    assert ev.alert_level == "orange"
-    assert ev.occurred_at == datetime(2026, 10, 18, tzinfo=timezone.utc)
-    assert ev.reported_at == datetime(2026, 10, 20, 6, 12, tzinfo=timezone.utc)
-    assert ev.metrics["affected_iso3"] == ["UKR"]
-    assert ev.url.startswith("https://www.gdacs.org/report.aspx")
-    assert len(ev.content_hash()) == 32
-
-
-def test_gdacs_feature_without_id_is_skipped():
-    bad = {"type": "Feature", "geometry": None, "properties": {"eventtype": "EQ"}}
-    assert parse_feature(bad) is None
-
-
-def test_gdacs_empty_iso3_falls_back_to_affected_countries():
-    f = {**GDACS_FEATURE, "properties": {**GDACS_FEATURE["properties"], "iso3": "", "country": "Vanuatu Islands",
-                                          "affectedcountries": [{"iso3": "VUT"}]}}
-    assert parse_feature(f).iso3 == "VUT"
-
 
 HAPI_COMMON = {"location_code": "UKR", "location_name": "Ukraine", "admin1_code": "UA65", "admin1_name": "Khersonska",
                "admin2_code": None, "admin_level": 1, "reference_period_start": "2026-06-01T00:00:00",

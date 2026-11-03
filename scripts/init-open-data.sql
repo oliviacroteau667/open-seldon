@@ -1,4 +1,4 @@
--- External open-data layers (GDACS, HDX HAPI, IDMC, …). Separate from the Telegram tables.
+-- External open-data layers (HDX HAPI, IDMC, …). Separate from the Telegram tables.
 -- Idempotent: safe to re-run on a live DB. Design: docs/open-data-integration.md
 
 CREATE TABLE IF NOT EXISTS sources (
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS external_events (
     id                      BIGSERIAL PRIMARY KEY,
     source_slug             TEXT NOT NULL REFERENCES sources(slug) ON DELETE CASCADE,
     source_record_id        TEXT NOT NULL,
-    event_type              TEXT,                 -- source-native type, e.g. GDACS "FL"
+    event_type              TEXT,                 -- source-native type, e.g. IDMC "Conflict"
     category                TEXT,                 -- our taxonomy key (housing, safety, …) or NULL
     title                   TEXT NOT NULL,
     summary                 TEXT,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS external_events (
     admin1_code             TEXT,
     admin2_code             TEXT,
     severity                TEXT,
-    alert_level             TEXT,                 -- green | orange | red (GDACS) or NULL
+    alert_level             TEXT,                 -- source alert level where one exists, else NULL
     metrics                 JSONB NOT NULL DEFAULT '{}'::jsonb,
     raw                     JSONB,
     content_hash            TEXT,
@@ -101,8 +101,6 @@ CREATE TABLE IF NOT EXISTS source_runs (
 
 -- Seed the catalogue. Connectors not yet written are disabled until their slice ships.
 INSERT INTO sources (slug, name, provider, kind, licence_id, attribution_text, homepage, enabled, default_on, cadence, countries) VALUES
-  ('gdacs', 'GDACS disaster alerts', 'UN OCHA / European Commission JRC', 'points',
-   'GDACS-ToU', 'Global Disaster Alert and Coordination System, GDACS', 'https://www.gdacs.org', TRUE, TRUE, 'daily', NULL),
   ('hapi', 'HDX HAPI humanitarian indicators', 'UN OCHA Centre for Humanitarian Data', 'areas',
    'mixed (CC BY / CC BY-IGO; ACLED terms for conflict counts)', 'OCHA HDX HAPI — see per-indicator provider', 'https://hapi.humdata.org', TRUE, FALSE, 'daily',
    ARRAY['UKR','POL','MDA','ROU','SVK','HUN']),

@@ -147,19 +147,13 @@ HDX) or kept out.
 
 ## Other intergovernmental and open sources
 
-### GDACS — Global Disaster Alert and Coordination System (planned, slice P4.0)
+### GDACS — Global Disaster Alert and Coordination System (removed 2026-11-03)
 
-A joint UN OCHA / European Commission JRC service.
-
-- **What:** earthquake, cyclone, flood, volcano, drought and wildfire alerts with green/orange/red
-  levels, severity, affected countries, centroid points and impact polygons.
-- **Access:** `https://www.gdacs.org/gdacsapi/api/events/geteventlist/latest?datemodified=<ISO>`
-  for nightly deltas; `…/geteventlist/search?eventlist=EQ;TC;FL;VO;DR;WF&alertlevel=…&fromDate=…`;
-  `…/polygons/getgeometry?eventtype=&eventid=&episodeid=`. No auth; 100 records per call;
-  RSS feeds refresh every 6 minutes.
-- **Licence:** terms are disclaimers only; GDACS asks for acknowledgement as "Global Disaster
-  Alert and Coordination System, GDACS". Per-event RSS resources are CC BY 4.0.
-- **Gotchas:** `country` may be free text with an empty `iso3`; alert-level casing varies.
+Joint UN OCHA / EC JRC natural-hazard alerts (earthquake, cyclone, flood, volcano, drought,
+wildfire), worldwide, green/orange/red by expected humanitarian impact. Used as the proving feed
+for the connector framework, then removed: it is not conflict- or corridor-specific and swamped the
+map with global events. No auth, acknowledgement "Global Disaster Alert and Coordination System,
+GDACS" if ever reinstated (e.g. scoped to the six countries via `sources.countries`).
 
 ### IDMC Internal Displacement Updates (planned, slice P4.1)
 

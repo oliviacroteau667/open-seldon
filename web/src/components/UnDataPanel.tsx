@@ -69,13 +69,6 @@ function buildCards(iso3: string, s: LayersSummary) {
   if (edu.length) cards.push({ value: num(edu[0].value), label: `Attacks on education · ${month(edu[0])}`, source: II, map: { slug: "insecurity_insight", indicator: "ii_education" } });
   const aid = by("ii_aid");
   if (aid.length) cards.push({ value: num(aid[0].value), label: `Aid worker incidents · ${month(aid[0])}${aid[0].extra?.killed ? ` · ${aid[0].extra.killed} killed` : ""}`, source: II, map: { slug: "insecurity_insight", indicator: "ii_aid" } });
-
-  const alerts = s.gdacs_last_30d.filter((a) => a.iso3 === iso3);
-  if (alerts.length) {
-    const n = alerts.reduce((a, r) => a + r.n, 0);
-    const red = alerts.find((a) => a.alert_level === "red")?.n ?? 0;
-    cards.push({ value: num(n), label: `GDACS alerts · 30 days${red ? ` · ${red} red` : ""}`, source: "GDACS" });
-  }
   return cards;
 }
 

@@ -1,5 +1,5 @@
 """
-Nightly runner for external open-data connectors (GDACS, HDX HAPI, ...).
+Nightly runner for external open-data connectors (HDX HAPI, IDMC, ...).
 
 Runs every enabled row of `sources` whose cadence is due, upserts what each connector
 yields, records a `source_runs` row and prints a JSON summary as the last line.
@@ -7,7 +7,7 @@ One source failing never aborts the run.
 
 Usage:
     python -m pipeline.run_sources
-    python -m pipeline.run_sources --source gdacs --since 2026-01-01
+    python -m pipeline.run_sources --source idmc_hdx --since 2026-01-01
     python -m pipeline.run_sources --source hapi --sample      # print a few parsed rows, no writes
 """
 from __future__ import annotations
@@ -25,7 +25,6 @@ import asyncpg
 from modules.dbcreds import resolve_postgres_dsn
 from pipeline.sources import AdminArea, AreaIndicator, Http, PointEvent, chunked
 from pipeline.sources.cod_ab import CodAbConnector
-from pipeline.sources.gdacs import GdacsConnector
 from pipeline.sources.hapi import HapiConnector
 from pipeline.sources.idmc_hdx import IdmcHdxConnector
 from pipeline.sources.insecurity_insight import InsecurityInsightConnector
@@ -33,13 +32,13 @@ from pipeline.sources.iom_mmp import IomMmpConnector
 
 log = logging.getLogger("pipeline.run_sources")
 
-CONNECTORS = {c.slug: c for c in (GdacsConnector, HapiConnector, IdmcHdxConnector, IomMmpConnector, InsecurityInsightConnector, CodAbConnector)}
+CONNECTORS = {c.slug: c for c in (HapiConnector, IdmcHdxConnector, IomMmpConnector, InsecurityInsightConnector, CodAbConnector)}
 COUNT_SQL = {
     "points": "SELECT COUNT(*) FROM external_events WHERE source_slug = $1",
     "areas": "SELECT COUNT(*) FROM area_indicators WHERE source_slug = $1",
     "boundaries": "SELECT COUNT(*) FROM admin_areas WHERE source_slug = $1",
 }
-MIN_INTERVAL = {"hapi.humdata.org": 1.0, "www.gdacs.org": 0.3, "data.humdata.org": 0.5}
+MIN_INTERVAL = {"hapi.humdata.org": 1.0, "data.humdata.org": 0.5}
 BATCH = 500
 
 
