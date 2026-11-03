@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 import random
 import time
 from dataclasses import dataclass, field
@@ -144,11 +145,23 @@ class Connector:
 class Http:
     """Shared async client: project User-Agent, per-host pacing, exponential backoff on 429/5xx."""
 
-    def __init__(self, min_interval: dict[str, float] | None = None, retries: int = 5):
+    # HDX fronts file downloads with an AWS WAF challenge for anonymous clients (seen 2026-11-03).
+    # The sanctioned route, and what the official hdx-python-api does, is to send the account's
+    # API key as a raw `Authorization` header — to data.humdata.org only, never to redirect targets.
+    HDX_HOST = "data.humdata.org"
+
+    def __init__(self, min_interval: dict[str, float] | None = None, retries: int = 5, hdx_api_key: str | None = None):
         self.client = httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, timeout=httpx.Timeout(60.0), follow_redirects=True)
         self.min_interval = min_interval or {}
         self.retries = retries
         self._last: dict[str, float] = {}
+        self.hdx_api_key = hdx_api_key if hdx_api_key is not None else os.environ.get("HDX_API_KEY") or None
+
+    def headers_for(self, url: str, extra: dict | None = None) -> dict | None:
+        host = httpx.URL(url).host or ""
+        if self.hdx_api_key and (host == self.HDX_HOST or host.endswith("." + self.HDX_HOST)):
+            return {**(extra or {}), "Authorization": self.hdx_api_key}
+        return extra
 
     async def _pace(self, host: str) -> None:
         gap = self.min_interval.get(host)
@@ -165,7 +178,10 @@ class Http:
         for attempt in range(1, self.retries + 1):
             await self._pace(host)
             try:
-                resp = await self.client.get(url, params=params, headers=headers)
+                resp = await self.client.get(url, params=params, headers=self.headers_for(url, headers))
+                if resp.status_code == 202 and resp.headers.get("x-amzn-waf-action") == "challenge":
+                    raise RuntimeError(
+                        f"HDX bot challenge on {url} — set HDX_API_KEY (HDX account → profile → API key) on the API host")
             except httpx.HTTPError as exc:
                 if attempt == self.retries:
                     raise

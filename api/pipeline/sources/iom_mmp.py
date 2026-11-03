@@ -15,6 +15,9 @@ from typing import AsyncIterator
 from pipeline.sources import Connector, PointEvent, parse_dt
 
 CKAN = "https://data.humdata.org/api/3/action/package_show"
+# `iom-missing-migrants-project-data` is the stale 2024-only mirror (a Google-Sheets export);
+# `missing-migrants-project-data` is IOM's current file (refreshed 2026-11-03) but sits behind the
+# HDX bot challenge, so it needs HDX_API_KEY. Override per deployment with config {"dataset": ...}.
 DATASET = "iom-missing-migrants-project-data"
 
 
@@ -81,7 +84,7 @@ class IomMmpConnector(Connector):
     async def fetch(self, since: datetime | None, countries: list[str] | None) -> AsyncIterator[PointEvent]:
         url = self.config.get("resource_url")
         if not url:
-            meta = await self.http.get_json(CKAN, params={"id": DATASET})
+            meta = await self.http.get_json(CKAN, params={"id": self.config.get("dataset") or DATASET})
             resources = (meta.get("result") or {}).get("resources") or []
             data_res = next((r for r in resources if str(r.get("format", "")).lower() == "csv" and "codebook" not in str(r.get("name", "")).lower()), None)
             if not data_res:

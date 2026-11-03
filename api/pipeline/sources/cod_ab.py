@@ -75,7 +75,7 @@ class CodAbConnector(Connector):
                 continue
             fd, path = tempfile.mkstemp(suffix=".zip")
             try:
-                async with self.http.client.stream("GET", res["url"]) as resp:
+                async with self.http.client.stream("GET", res["url"], headers=self.http.headers_for(res["url"])) as resp:
                     resp.raise_for_status()
                     with os.fdopen(fd, "wb") as out:
                         async for chunk in resp.aiter_bytes(1 << 20):

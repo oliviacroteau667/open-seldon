@@ -160,3 +160,12 @@ def test_parse_dt_handles_naive_and_zulu():
     assert parse_dt("2026-10-20T06:12:00").tzinfo is not None
     assert parse_date("2026-10-20") == date(2026, 10, 20)
     assert parse_dt("") is None
+
+
+def test_http_sends_hdx_api_key_only_to_hdx():
+    from pipeline.sources import Http
+    http = Http(hdx_api_key="k-123")
+    assert http.headers_for("https://data.humdata.org/dataset/x/download/y.csv") == {"Authorization": "k-123"}
+    assert http.headers_for("https://hapi.humdata.org/api/v2/x") is None
+    assert http.headers_for("https://s3.us-east-1.amazonaws.com/hdx-production-filestore/y.csv", {"A": "b"}) == {"A": "b"}
+    assert Http(hdx_api_key="").headers_for("https://data.humdata.org/x") is None

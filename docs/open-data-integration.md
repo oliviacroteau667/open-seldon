@@ -166,6 +166,14 @@ choropleth, change strip, phone sheet).
 | P4.3 | waiting on Olivia | Submit `docs/reliefweb-appname-request.md` to ReliefWeb; connector is ~1 hour once the appname is approved. |
 | P4.4 | not started | |
 
+**HDX bot challenge (from 2026-11-03).** Anonymous file downloads from `data.humdata.org` now get
+an AWS WAF challenge (HTTP 202, `x-amzn-waf-action: challenge`); the CKAN JSON API still answers.
+This blocks IDMC, Insecurity Insight, COD-AB and the current IOM file. The sanctioned fix, and
+what the official `hdx-python-api` does, is to send an HDX account API key as a raw
+`Authorization` header on HDX-host requests. Set `HDX_API_KEY` in the API container's `.env`
+(HDX → user profile → API key); the connectors pick it up automatically and the runner now fails
+loudly with that hint instead of parsing an empty body.
+
 Known data facts worth remembering:
 
 - HAPI **IPC/food security has no rows for any of the six countries** — IPC does not run analyses
@@ -178,9 +186,11 @@ Known data facts worth remembering:
 - HAPI **operational presence (3W)** is empty for all six countries (confirmed directly against
   the endpoint). OCHA Ukraine publishes its 3W as a separate HDX dataset; a follow-up connector
   could read that if the card matters.
-- **IOM Missing Migrants** on HDX is a stale mirror (2024 only, last touched Aug 2025) and
-  missingmigrants.iom.int blocks non-browser downloads (HTTP 403). The source row's `config`
-  accepts `{"resource_url": ...}` to point at a current export once one is confirmed.
+- **IOM Missing Migrants**: the connector reads `iom-missing-migrants-project-data`, a stale
+  2024-only mirror. HDX also hosts IOM's current file as `missing-migrants-project-data`
+  (refreshed daily, through 2026-11-02) but it is behind the bot challenge above. Once
+  `HDX_API_KEY` is set, switch the source row's `config` to `{"dataset": "missing-migrants-project-data"}`
+  after checking its columns still match `parse_row`.
 - **Insecurity Insight** censors every coordinate for Ukraine, so it is ingested as monthly
   counts per oblast (admin1 p-code) + national rollup; headline cards show the latest month for
   health care, explosive weapons, education and aid workers. Oblast choropleths arrive with P4.2.
