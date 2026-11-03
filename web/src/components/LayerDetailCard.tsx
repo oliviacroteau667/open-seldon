@@ -17,7 +17,7 @@ export default function LayerDetailCard({ event, layer, onClose }: { event: Laye
   const alert = event.alert_level?.toLowerCase() ?? null;
   const figure = typeof event.metrics?.["figure"] === "number" ? (event.metrics["figure"] as number).toLocaleString("en-GB") : null;
   return (
-    <div role="dialog" aria-label={event.title} style={{ background: "var(--panel-strong)", border: "1px solid var(--line)", borderRadius: 10, backdropFilter: "blur(20px)", boxShadow: "var(--shadow)", padding: "12px 14px", width: 300, maxWidth: "calc(100vw - 40px)", color: "var(--text)", font: `400 12px/1.5 ${SANS}` }}>
+    <div role="dialog" aria-label={event.title} style={{ background: "var(--panel-strong)", border: "1px solid var(--line)", borderRadius: 10, backdropFilter: "blur(20px)", boxShadow: "var(--shadow)", padding: "12px 14px", width: 300, maxWidth: "calc(100vw - 40px)", color: "var(--text)", font: `400 12px/1.5 ${SANS}`, flex: "0 1 auto", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", pointerEvents: "auto" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         {alert && <span aria-label={`${alert} alert`} style={{ marginTop: 5, width: 9, height: 9, borderRadius: 2, transform: "rotate(45deg)", background: ALERT_COLOR[alert] ?? "var(--text-3)", flex: "none" }} />}
         <div style={{ font: `600 13.5px/1.3 ${SANS}`, flex: 1, minWidth: 0 }}>{event.title}</div>
@@ -30,7 +30,11 @@ export default function LayerDetailCard({ event, layer, onClose }: { event: Laye
         {event.severity && <div style={{ color: "var(--text-3)" }}>{event.severity}</div>}
         {figure && <div style={{ color: "var(--text-3)" }}>{figure} people</div>}
       </div>
-      {event.summary && <div style={{ color: "var(--text-3)", marginTop: 6, maxHeight: 96, overflow: "hidden" }}>{event.summary}</div>}
+      {event.summary && (
+        <div tabIndex={0} aria-label="Summary" style={{ color: "var(--text-3)", marginTop: 6, maxHeight: 180, overflowY: "auto", paddingRight: 4, overscrollBehavior: "contain", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+          {event.summary}
+        </div>
+      )}
       <div style={{ font: `400 9px ${MONO}`, letterSpacing: ".06em", color: "var(--text-3)", marginTop: 10, textTransform: "uppercase" }}>
         Source: {layer?.attribution_text ?? event.source_record_id}{event.reported_at ? ` · updated ${fmt(event.reported_at)}` : ""}
       </div>

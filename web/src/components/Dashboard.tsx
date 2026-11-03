@@ -388,7 +388,8 @@ export default function Dashboard() {
 
         {/* UN data cards (HDX HAPI indicators) and the external-event detail card */}
         {(unDataOpen || selectedEvent) && (
-          <div style={{ position: "absolute", left: leftPad, top: showRegions ? 200 : 114, zIndex: 11, display: "flex", flexDirection: "column", gap: 10, transition: overlayTransition }}>
+          <div style={{ position: "absolute", left: leftPad, top: showRegions ? 200 : 114, bottom: 120, zIndex: 11, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 10, transition: overlayTransition, pointerEvents: "none" }}>
+            {/* children re-enable pointer events; the column itself is a layout box so clicks reach the map */}
             {unDataOpen && <UnDataPanel onClose={() => setUnDataOpen(false)} choropleth={choropleth} onChoropleth={setChoropleth} />}
             {selectedEvent && <LayerDetailCard event={selectedEvent.event} layer={selectedEvent.layer} onClose={() => setSelectedEvent(null)} />}
           </div>

@@ -95,7 +95,7 @@ export default function UnDataPanel({ onClose, choropleth, onChoropleth }: Props
   const cards = useMemo(() => (summary ? buildCards(iso3, summary) : []), [summary, iso3]);
 
   return (
-    <div role="region" aria-label="UN data" style={{ background: "var(--panel-strong)", border: "1px solid var(--line)", borderRadius: 10, backdropFilter: "blur(20px)", boxShadow: "var(--shadow)", padding: "12px 14px 14px", width: 420, maxWidth: "calc(100vw - 40px)", color: "var(--text)", font: `400 12px ${SANS}` }}>
+    <div role="region" aria-label="UN data" style={{ background: "var(--panel-strong)", border: "1px solid var(--line)", borderRadius: 10, backdropFilter: "blur(20px)", boxShadow: "var(--shadow)", padding: "12px 14px 14px", width: 420, maxWidth: "calc(100vw - 40px)", color: "var(--text)", font: `400 12px ${SANS}`, pointerEvents: "auto", flex: "0 1 auto", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ font: `400 10px ${MONO}`, letterSpacing: ".12em", color: "var(--text-3)" }}>UN DATA · LATEST PERIODS</span>
         <button onClick={onClose} aria-label="Close" style={{ marginLeft: "auto", background: "none", border: 0, color: "var(--text-3)", cursor: "pointer", font: `400 16px ${SANS}`, lineHeight: 1, padding: 0 }}>×</button>
