@@ -35,9 +35,10 @@ async def list_layers(pool: asyncpg.Pool = Depends(_get_pool)):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT slug, name, provider, kind, licence_id, attribution_text, homepage, default_on, cadence,
-                   countries, record_count, last_success_at, last_error
-            FROM sources WHERE enabled ORDER BY kind, name
+            SELECT s.slug, s.name, s.provider, s.kind, s.licence_id, s.attribution_text, s.homepage, s.default_on, s.cadence,
+                   s.countries, s.record_count, s.last_success_at, s.last_error,
+                   (SELECT MAX(e.occurred_at) FROM external_events e WHERE e.source_slug = s.slug) AS latest_event_at
+            FROM sources s WHERE s.enabled ORDER BY s.kind, s.name
             """
         )
     return {"layers": [_row(r) for r in rows]}

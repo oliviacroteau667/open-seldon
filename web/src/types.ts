@@ -40,6 +40,7 @@ export interface Layer {
   record_count: number;
   last_success_at: string | null;
   last_error: string | null;
+  latest_event_at: string | null; // newest occurred_at in the data (points layers), distinct from when we last pulled
 }
 
 export interface LayerEvent {

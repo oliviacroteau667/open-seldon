@@ -12,7 +12,8 @@ export async function fetchLayers(): Promise<Layer[]> {
   return (await res.json()).layers;
 }
 
-export async function fetchLayerEvents(slug: string, sinceDays = 90): Promise<LayerEventsResponse> {
+// A year, not 90 days: some sources (IOM) lag months and would otherwise draw nothing
+export async function fetchLayerEvents(slug: string, sinceDays = 365): Promise<LayerEventsResponse> {
   const since = new Date(Date.now() - sinceDays * 86400000).toISOString();
   const res = await fetch(`/api/layers/${encodeURIComponent(slug)}/events?since=${encodeURIComponent(since)}`);
   if (!res.ok) throw new Error(`layer ${slug} fetch failed: ${res.status}`);

@@ -16,6 +16,15 @@ function ageLabel(iso: string | null): string {
   return `${Math.round(hours / 24)}d`;
 }
 
+// What the user sees as freshness is how recent the DATA is, not when we last pulled it
+function dataLabel(l: Layer): string {
+  if (l.kind !== "points" || !l.latest_event_at) return ageLabel(l.last_success_at);
+  const days = (Date.now() - new Date(l.latest_event_at).getTime()) / 86400000;
+  if (days < 2) return "today";
+  if (days < 45) return `${Math.round(days)}d`;
+  return "to " + new Date(l.latest_event_at).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 const THEME_MODES: { key: ThemeMode; label: string }[] = [
   { key: "light", label: "Light" },
   { key: "dark", label: "Dark" },
@@ -239,8 +248,8 @@ export default function Sidebar({ width, collapsed: isCollapsed, dragging, onHan
                         {l.name}
                       </span>
                       {shareAlike && <span aria-label="share-alike licence" style={{ font: "400 8px 'Space Mono', monospace", letterSpacing: ".06em", border: "1px solid var(--line)", borderRadius: 3, padding: "1px 3px", color: "var(--text-3)" }}>SA</span>}
-                      <span aria-label={stale ? "stale" : "updated"} style={{ font: "400 10px 'Space Mono', monospace", color: stale ? "var(--warn)" : "var(--text-3)" }}>
-                        {stale ? "stale" : ageLabel(l.last_success_at)}
+                      <span aria-label={stale ? "stale" : "data recency"} title={`Pulled ${ageLabel(l.last_success_at)} ago`} style={{ font: "400 10px 'Space Mono', monospace", color: stale ? "var(--warn)" : "var(--text-3)" }}>
+                        {stale ? "stale" : dataLabel(l)}
                       </span>
                     </>
                   )}
